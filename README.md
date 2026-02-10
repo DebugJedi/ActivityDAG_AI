@@ -41,7 +41,7 @@ export OPENAI_MODEL="gpt-4o-mini"
 
 The backend uses OpenAI's official Python SDK + Responses API when a key is present. (See OpenAI docs on platform.openai.com.)
 
-### 4) Run
+### 4) Run (The Frontend is in progress, temoparily this section won't run for a bit.)
 From repo root:
 ```bash
 uvicorn backend.app:app --reload --port 8000
