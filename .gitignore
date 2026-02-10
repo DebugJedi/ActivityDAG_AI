@@ -18,6 +18,8 @@ Dockerfile
 embeddings_*
 frontend
 frontend/*
+scripts
+backend/app.py
 
 # Database
 *.db
