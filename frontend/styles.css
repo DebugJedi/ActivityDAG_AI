@@ -106,6 +106,13 @@ body::after {
 
 .logo {
   width: 46px;
+  height: 35px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  border: 1px solid rgba(45,212,160,0.18);
+}
+/* .logo {
+  width: 46px;
   height: 46px;
   border-radius: var(--radius-sm);
   display: grid;
@@ -119,7 +126,7 @@ body::after {
   border: 1px solid rgba(45,212,160,0.18);
   position: relative;
   overflow: hidden;
-}
+} */
 
 .logo::after {
   content: '';
@@ -145,6 +152,16 @@ body::after {
   text-transform: uppercase;
   font-weight: 500;
 }
+
+.brand-text .sub-subtitle {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
 
 .topbar-right {
   display: flex;

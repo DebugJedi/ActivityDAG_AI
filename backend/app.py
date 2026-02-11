@@ -62,7 +62,7 @@ def api_chat(req: ChatReq):
     SESSIONS.append(s.id, "user", user_msg)
 
     assistant_text = render_with_llm(SYSTEM_PROMPT, s.history, user_msg, tool_result)
-    console.print("assistant:", assistant_text)
+    # console.print("assistant:", assistant_text)
     SESSIONS.append(s.id, "assistant", assistant_text)
 
     return {"reply": assistant_text, "data": tool_result}
