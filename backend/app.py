@@ -70,3 +70,13 @@ def api_chat(req: ChatReq):
 # Serve frontend (simple single-page app)
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+
+
+
+if __name__ == "__main__":
+    from pyngrok import ngrok
+    import uvicorn
+
+    public_url = ngrok.connect(8080)
+    print(f"\n🌐 Public URL: {public_url}\n")
+    uvicorn.run(app, host="0.0.0.0", port=8080)

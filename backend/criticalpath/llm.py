@@ -5,6 +5,39 @@ import json
 from rich.console import Console
 console = Console()
 from .config import OPENAI_API_KEY, OPENAI_MODEL
+import re
+
+def clean_llm_text(text: str) -> str:
+    if not text:
+        return ""
+
+    t = text
+
+    # Normalize newlines
+    t = t.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Remove markdown headings like "#", "##", etc.
+    t = re.sub(r'^\s{0,3}#{1,6}\s*', '', t, flags=re.MULTILINE)
+
+    # Remove bold/italic markers ** **, * *, __ __, _ _
+    t = re.sub(r'\*\*(.*?)\*\*', r'\1', t)
+    t = re.sub(r'__(.*?)__', r'\1', t)
+    t = re.sub(r'\*(.*?)\*', r'\1', t)
+    t = re.sub(r'_(.*?)_', r'\1', t)
+
+    # Remove inline code ticks
+    t = re.sub(r'`([^`]+)`', r'\1', t)
+
+    # Convert bullet lines "- " or "* " to "• "
+    t = re.sub(r'^\s*[-*]\s+', '• ', t, flags=re.MULTILINE)
+
+    # Remove extra spaces
+    t = re.sub(r'[ \t]+', ' ', t)
+
+    # Clean excessive blank lines
+    t = re.sub(r'\n{3,}', '\n\n', t).strip()
+
+    return t
 
 def _fallback_template(user_message: str, result: Dict[str, Any]) -> str:
     # Minimal offline response
@@ -52,6 +85,8 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
         model=OPENAI_MODEL,
         input=messages,
     )
-    
+
+    reply = getattr(resp, "output_text", str(resp))
+    reply = clean_llm_text(reply)    
     # SDK returns output_text convenience
-    return getattr(resp, "output_text", str(resp))
+    return reply
