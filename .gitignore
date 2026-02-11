@@ -16,11 +16,12 @@ tests
 docker*
 Dockerfile
 embeddings_*
-frontend
-frontend/*
+# frontend
+# frontend/*
 scripts
 backend/app.py
-
+backup_frontend
+backup_frontend/*
 # Database
 *.db
 *.db-journal

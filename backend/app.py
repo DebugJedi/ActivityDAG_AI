@@ -4,12 +4,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pathlib import Path
+from rich.console import Console
 
-from criticalpath.config import DATA_DIR
-from criticalpath.data_loader import load_schedule_data, list_projects
-from criticalpath.sessions import SessionStore
-from criticalpath.router import route_query
-from criticalpath.llm import render_with_llm
+console = Console()
+
+from . import DATA_DIR
+from . import load_schedule_data, list_projects
+from . import SessionStore
+from . import route_query
+from . import render_with_llm
+
 
 # Load once at startup
 DATA = load_schedule_data(DATA_DIR)
@@ -58,6 +62,7 @@ def api_chat(req: ChatReq):
     SESSIONS.append(s.id, "user", user_msg)
 
     assistant_text = render_with_llm(SYSTEM_PROMPT, s.history, user_msg, tool_result)
+    console.print("assistant:", assistant_text)
     SESSIONS.append(s.id, "assistant", assistant_text)
 
     return {"reply": assistant_text, "data": tool_result}

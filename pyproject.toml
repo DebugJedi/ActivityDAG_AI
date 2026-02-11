@@ -16,7 +16,7 @@ google-genai = "^1.56.0"
 openai = "^2.14.0"
 portkey-ai = "^2.1.0"
 python-dotenv = "^1.2.1"
-fastapi = "^0.110"
+fastapi = {extras = ["standard"], version = "^0.128.7"}
 uvicorn = { version = "^0.27", extras = ["standard"] }
 pandas = "^2.2"
 numpy = "^1.26"

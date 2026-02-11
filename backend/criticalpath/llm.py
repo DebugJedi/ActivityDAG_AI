@@ -2,7 +2,8 @@ from __future__ import annotations
 from typing import List, Dict, Any, Optional
 import os
 import json
-
+from rich.console import Console
+console = Console()
 from .config import OPENAI_API_KEY, OPENAI_MODEL
 
 def _fallback_template(user_message: str, result: Dict[str, Any]) -> str:
@@ -14,6 +15,7 @@ def _fallback_template(user_message: str, result: Dict[str, Any]) -> str:
 def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_message: str, tool_result: Dict[str, Any]) -> str:
     """If OPENAI_API_KEY is set, uses OpenAI Responses API; else uses a template."""
     if not OPENAI_API_KEY:
+        console.print("The API is not working:......")
         return _fallback_template(user_message, tool_result)
 
     # OpenAI official Python SDK uses OpenAI() client
@@ -29,10 +31,16 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
     for m in history[-20:]:
         if m.get("role") in ("user", "assistant"):
             messages.append({"role": m["role"], "content": m["content"]})
+
+    # intent = tool_result.get("intent", "UNKNOWN")
+    # meta = tool_result.get("meta", {})
+    # f"Intent: {intent}\n"
+    # f"Meta: {json.dumps(meta, indent=2, default=str)}\n\n"
     messages.append({
         "role": "user",
         "content": (
-            f"User question: {user_message}\n\n"
+            f"User question: {user_message}\n"
+            
             f"Computed schedule data (JSON):\n{tool_blob}\n\n"
             "Write a concise, stakeholder-friendly answer. "
             "If you list tasks, include task_code + task_name when available. "
@@ -44,6 +52,6 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
         model=OPENAI_MODEL,
         input=messages,
     )
-
+    
     # SDK returns output_text convenience
     return getattr(resp, "output_text", str(resp))

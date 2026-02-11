@@ -10,6 +10,7 @@ from .analytics import (
     critical_and_near_critical,
     top_float_risks,
     project_duration,
+    project_total_float,
 )
 
 _TASK_ID_RE = re.compile(r"\b\d{4,}\b")
@@ -35,9 +36,26 @@ def route_query(data, proj_id: str, message: str) -> Dict[str, Any]:
     G = build.graph
     tasks = build.tasks
 
+    # Always attach meta data so the LLM can explain limitations consistently
+    # meta ={
+    #     "project_id": str(proj_id),
+    #     "graph":{
+    #         "tasks": int(G.number_of_nodes()),
+    #         "relationships": int(G.number_of_edges()),
+    #         "has_cycles": bool(build.has_cycles),
+    #     },
+    #     "data_quality": {
+    #         "has_task_code": "task_code" in tasks.columns,
+    #         "has_task_name": "task_name" in tasks.columns,
+    #         "has_total_float":"total_float_hr_cnt" in tasks.columns,
+    #         "has_duration": "target_drtn_hr_cnt" in tasks.columns,
+    #     },
+    # }
+
+
     if intent == "CRITICAL_PATH":
         res = critical_path_summary(G)
-        return {"intent": intent, **res}
+        return {"intent": intent,  **res}
 
     if intent == "FLOAT":
         # If user asked for float of a particular task, try lookup
@@ -47,12 +65,36 @@ def route_query(data, proj_id: str, message: str) -> Dict[str, Any]:
         if token:
             t = _find_task_by_code_or_id(tasks, token)
             if t and "total_float_hr_cnt" in t:
-                return {"intent": intent, "task": token, "total_float_hr_cnt": t.get("total_float_hr_cnt"), "task_name": t.get("task_name")}
+                # return {"intent": intent, "task": token, "total_float_hr_cnt": t.get("total_float_hr_cnt"), "task_name": t.get("task_name")}
+                return {
+                    "intent": intent,
+                    
+                    "task": token,
+                    "total_float_hr_cnt": t.get("total_float_hr_cnt"),
+                    "task_name": t.get("task_name"),
+                }
         # Otherwise return top risks + counts
-        return {"intent": intent, "top_float_risks": top_float_risks(tasks), "critical_near": critical_and_near_critical(tasks)}
+        # return {"intent": intent, "top_float_risks": top_float_risks(tasks), "critical_near": critical_and_near_critical(tasks)}
+        return {
+            "intent": intent,
+            
+            "top_float_risks": top_float_risks(tasks),
+            "critical_near": critical_and_near_critical(tasks)
+        }
+    q = message.lower()
+    proj_float = project_total_float(tasks)
+
+    if "total float" in q and any(k in q for k in ["Project", "overall", "schedule", "job"]):
+        counts = critical_and_near_critical(tasks).get("counts", {})
+        return {"intent": intent, "project_float": proj_float, "critical_near_counts": counts}
+    
+
+
+      
 
     if intent == "DURATION":
-        return {"intent": intent, "project_duration": project_duration(tasks)}
+        return {"intent": intent,  "project_duration": project_duration(tasks)}
+        
 
     if intent in ("PREDECESSORS", "SUCCESSORS", "TASK_LOOKUP"):
         code = _TASK_CODE_RE.search(message)
@@ -80,11 +122,12 @@ def route_query(data, proj_id: str, message: str) -> Dict[str, Any]:
             return {"intent": intent, "task": t, "predecessors": preds[:100]}
 
         succs = [{"task_id": s, "task_code": G.nodes[s].get("task_code",""), "task_name": G.nodes[s].get("task_name","")} for s in G.successors(node_id)]
-        return {"intent": intent, "task": t, "successors": succs[:100]}
+        return {"intent": intent,  "task": t, "successors": succs[:100]}
 
     # HEALTH or UNKNOWN: give a quick situation report
     return {
         "intent": intent,
+        
         "project_duration": project_duration(tasks),
         "critical_near": critical_and_near_critical(tasks),
         "top_float_risks": top_float_risks(tasks),

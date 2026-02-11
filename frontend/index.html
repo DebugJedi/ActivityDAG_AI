@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CriticalPath AI — Schedule Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">CP</div>
+        <div class="brand-text">
+          <div class="title">CriticalPath AI</div>
+          <div class="subtitle">Schedule Intelligence</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="status-dot" id="statusDot" title="System online"></div>
+        <div class="project-pill" id="projectPill">No project loaded</div>
+      </div>
+    </header>
+
+    <!-- MAIN -->
+    <main>
+
+      <!-- ONBOARDING -->
+      <div class="onboarding-wrapper" id="onboarding">
+        <div class="onboarding">
+          <div class="onboarding-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M2 12h4l3-9 6 18 3-9h4"/>
+            </svg>
+          </div>
+          <h2>Schedule Intelligence</h2>
+          <p class="desc">Select a P6 project to begin analyzing critical path, float, dependencies, and schedule health.</p>
+
+          <div class="form-group">
+            <label class="form-label">Project</label>
+            <div class="select-wrapper">
+              <select id="projectSelect" class="select"></select>
+            </div>
+          </div>
+
+          <button id="startBtn" class="btn-start">Launch Analysis Session</button>
+
+          <div class="capabilities">
+            <div class="cap-item"><span class="cap-dot green"></span>Critical path analysis</div>
+            <div class="cap-item"><span class="cap-dot blue"></span>Float &amp; risk detection</div>
+            <div class="cap-item"><span class="cap-dot amber"></span>Dependency mapping</div>
+            <div class="cap-item"><span class="cap-dot red"></span>Schedule health scoring</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAT -->
+      <div class="chat-container" id="chat" hidden>
+        <div class="messages" id="messages"></div>
+        <div class="composer">
+          <div class="input-wrapper">
+            <input id="chatInput" class="chat-input" placeholder="Ask about critical path, float, delays, dependencies..." autocomplete="off" />
+          </div>
+          <button id="sendBtn" class="btn-send" title="Send message">
+            <svg id="sendIcon" viewBox="0 0 24 24">
+              <path d="M22 2L11 13"/>
+              <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+            </svg>
+            <div id="sendSpinner" class="spinner-send" hidden></div>
+          </button>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <div class="footer-left">
+        <span class="footer-badge">Local MVP</span>
+        <span>All data stays on your machine</span>
+      </div>
+      <span>Powered by graph analytics + LLM</span>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
