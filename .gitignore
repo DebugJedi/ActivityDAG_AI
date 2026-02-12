@@ -16,12 +16,13 @@ tests
 docker*
 Dockerfile
 embeddings_*
-# frontend
-# frontend/*
 scripts
+backend/*
 backend/app.py
 backup_frontend
 backup_frontend/*
+scripts
+scripts/*
 # Database
 *.db
 *.db-journal
@@ -49,3 +50,15 @@ Thumbs.db
 .cache/
 .pytest_cache/
 
+#JSON
+local.settings.json
+.vscode/settings.json
+.idea/
+
+# Data files
+data/*.csv
+
+# Azure deployment artifacts
+.azure/
+bin/
+obj/
