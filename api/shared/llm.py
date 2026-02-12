@@ -48,7 +48,7 @@ def _fallback_template(user_message: str, result: Dict[str, Any]) -> str:
 
 def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_message: str, tool_result: Dict[str, Any]) -> str:
     """If OPENAI_API_KEY is set, uses OpenAI Responses API; else uses a template."""
-    print("OPENAI APIKEY: ", OPENAI_API_KEY)
+    
     if not OPENAI_API_KEY:
         # console.print("The API is not working:......")
         print("The API Key is not working.......")
@@ -91,6 +91,12 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
             "If results are empty, explain what might be missing in the data."
         )
     })
+
+    # resp = client.chat.completions.create(
+    #     model=OPENAI_MODEL,
+    #     messages=messages
+    # )
+    # reply = resp.choices[0].message.content
 
     ### This need to update to how azure response are called.
     resp = client.responses.create(
