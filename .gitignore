@@ -23,6 +23,8 @@ backup_frontend
 backup_frontend/*
 scripts
 scripts/*
+poetry.lock
+pyproject.toml
 # Database
 *.db
 *.db-journal
