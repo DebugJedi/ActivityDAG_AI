@@ -68,8 +68,6 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
         # from openai import OpenAI  
         # client = OpenAI(api_key=OPENAI_API_KEY)
 
-        # AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "https://openai-cpcu.openai.azure.com/")
-        
         from openai import AzureOpenAI
         client = AzureOpenAI(
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -103,20 +101,17 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
             )
         })
         
-    #     resp = client.chat.completions.create(
-    #         model=os.getenv("OPENAI_MODEL"),
-    #         messages=messages
-    #     )
-    #     reply = resp.choices[0].message.content
-    # except Exception as e:
-    #     print(f"LLM call failed: {type(e).__name__}: {e}")
-    #     reply = _fallback_template(user_message, tool_result)
-
-        ## This need to update to how azure response are called.
-        resp = client.responses.create(
-            model=OPENAI_MODEL,
-            input=messages,
+        resp = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL"),
+            messages=messages
         )
+        reply = resp.choices[0].message.content
+    
+        ## This need to update to how azure response are called.
+        # resp = client.responses.create(
+        #     model=OPENAI_MODEL,
+        #     input=messages,
+        # )
 
     
         reply = clean_llm_text(reply)    
@@ -124,4 +119,6 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
         return reply
     
     except Exception as e:
-        raise 
+        print(f"LLM call failed: {type(e).__name__}: {e}")
+        reply = _fallback_template(user_message, tool_result)
+
