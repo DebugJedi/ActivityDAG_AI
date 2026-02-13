@@ -36,19 +36,6 @@ pip install -r requirements.txt
 Set an API key:
 ```bash
 export OPENAI_API_KEY="..."
-export OPENAI_MODEL="gpt-4o-mini"
+export OPENAI_MODEL="gpt-4o"
 ```
 
-The backend uses OpenAI's official Python SDK + Responses API when a key is present. (See OpenAI docs on platform.openai.com.)
-
-### 4) Run (The Frontend is in progress, temoparily this section won't run for a bit.)
-From repo root:
-```bash
-uvicorn backend.app:app --reload --port 8000
-```
-Open:
-- http://localhost:8000
-
-## Notes
-- Sessions are kept in-memory (good for local MVP).
-- CPM/critical-path is approximated for DAGs; if a cycle is detected we fall back to P6's `driving_path_flag` when present.
