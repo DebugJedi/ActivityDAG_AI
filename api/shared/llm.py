@@ -11,7 +11,7 @@ load_dotenv()
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL")
-
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 def clean_llm_text(text: str) -> str:
     if not text:
@@ -69,9 +69,7 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
         # client = OpenAI(api_key=OPENAI_API_KEY)
 
         # AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "https://openai-cpcu.openai.azure.com/")
-        print(AZURE_OPENAI_ENDPOINT)
-        print("KEY: ", AZURE_OPENAI_API_KEY)
-        print("MODEL: ",OPENAI_MODEL )
+        
         from openai import AzureOpenAI
         client = AzureOpenAI(
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -105,22 +103,25 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
             )
         })
         
-        resp = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL"),
-            messages=messages
+    #     resp = client.chat.completions.create(
+    #         model=os.getenv("OPENAI_MODEL"),
+    #         messages=messages
+    #     )
+    #     reply = resp.choices[0].message.content
+    # except Exception as e:
+    #     print(f"LLM call failed: {type(e).__name__}: {e}")
+    #     reply = _fallback_template(user_message, tool_result)
+
+        ## This need to update to how azure response are called.
+        resp = client.responses.create(
+            model=OPENAI_MODEL,
+            input=messages,
         )
-        reply = resp.choices[0].message.content
+
+    
+        reply = clean_llm_text(reply)    
+        
+        return reply
+    
     except Exception as e:
-        print(f"LLM call failed: {type(e).__name__}: {e}")
-        reply = _fallback_template(user_message, tool_result)
-
-    ### This need to update to how azure response are called.
-    # resp = client.responses.create(
-    #     model=OPENAI_MODEL,
-    #     input=messages,
-    # )
-
-    # reply = getattr(resp, "output_text", str(resp))
-    reply = clean_llm_text(reply)    
-    # SDK returns output_text convenience
-    return reply
+        raise 
