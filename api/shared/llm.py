@@ -4,8 +4,13 @@ import os
 import json
 from rich.console import Console
 console = Console()
-from .config import OPENAI_API_KEY, OPENAI_MODEL
+from dotenv import load_dotenv
 import re
+load_dotenv()
+
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL")
 
 
 def clean_llm_text(text: str) -> str:
@@ -49,7 +54,7 @@ def _fallback_template(user_message: str, result: Dict[str, Any]) -> str:
 def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_message: str, tool_result: Dict[str, Any]) -> str:
     """If OPENAI_API_KEY is set, uses OpenAI Responses API; else uses a template."""
     
-    if not OPENAI_API_KEY:
+    if not AZURE_OPENAI_API_KEY:
         # console.print("The API is not working:......")
         print("The API Key is not working.......")
         return _fallback_template(user_message, tool_result)
@@ -58,53 +63,64 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
     # See official docs: https://platform.openai.com/docs
 
     ## Need to update azurebased OpenAI
-    from openai import OpenAI  
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    # from openai import AzureOpenAI
-    # client = AzureOpenAI(
-    #     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    #     api_version="2024-02-01",
-    #     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
-    # )
+    
+    try:
+        # from openai import OpenAI  
+        # client = OpenAI(api_key=OPENAI_API_KEY)
 
-    # Keep the context small-ish: include history + tool_result JSON
-    tool_blob = json.dumps(tool_result, indent=2, default=str)
-
-    messages: List[Dict[str, str]] = []
-    messages.append({"role": "system", "content": system_prompt})
-    for m in history[-20:]:
-        if m.get("role") in ("user", "assistant"):
-            messages.append({"role": m["role"], "content": m["content"]})
-
-    # intent = tool_result.get("intent", "UNKNOWN")
-    # meta = tool_result.get("meta", {})
-    # f"Intent: {intent}\n"
-    # f"Meta: {json.dumps(meta, indent=2, default=str)}\n\n"
-    messages.append({
-        "role": "user",
-        "content": (
-            f"User question: {user_message}\n"
-            
-            f"Computed schedule data (JSON):\n{tool_blob}\n\n"
-            "Write a concise, stakeholder-friendly answer. "
-            "If you list tasks, include task_code + task_name when available. "
-            "If results are empty, explain what might be missing in the data."
+        # AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "https://openai-cpcu.openai.azure.com/")
+        print(AZURE_OPENAI_ENDPOINT)
+        print("KEY: ", AZURE_OPENAI_API_KEY)
+        print("MODEL: ",OPENAI_MODEL )
+        from openai import AzureOpenAI
+        client = AzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            api_version="2024-02-01",
+            azure_endpoint=AZURE_OPENAI_ENDPOINT
         )
-    })
+        
 
-    # resp = client.chat.completions.create(
-    #     model=OPENAI_MODEL,
-    #     messages=messages
-    # )
-    # reply = resp.choices[0].message.content
+        # Keep the context small-ish: include history + tool_result JSON
+        tool_blob = json.dumps(tool_result, indent=2, default=str)
+
+        messages: List[Dict[str, str]] = []
+        messages.append({"role": "system", "content": system_prompt})
+        for m in history[-20:]:
+            if m.get("role") in ("user", "assistant"):
+                messages.append({"role": m["role"], "content": m["content"]})
+
+        # intent = tool_result.get("intent", "UNKNOWN")
+        # meta = tool_result.get("meta", {})
+        # f"Intent: {intent}\n"
+        # f"Meta: {json.dumps(meta, indent=2, default=str)}\n\n"
+        messages.append({
+            "role": "user",
+            "content": (
+                f"User question: {user_message}\n"
+                
+                f"Computed schedule data (JSON):\n{tool_blob}\n\n"
+                "Write a concise, stakeholder-friendly answer. "
+                "If you list tasks, include task_code + task_name when available. "
+                "If results are empty, explain what might be missing in the data."
+            )
+        })
+        
+        resp = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL"),
+            messages=messages
+        )
+        reply = resp.choices[0].message.content
+    except Exception as e:
+        print(f"LLM call failed: {type(e).__name__}: {e}")
+        reply = _fallback_template(user_message, tool_result)
 
     ### This need to update to how azure response are called.
-    resp = client.responses.create(
-        model=OPENAI_MODEL,
-        input=messages,
-    )
+    # resp = client.responses.create(
+    #     model=OPENAI_MODEL,
+    #     input=messages,
+    # )
 
-    reply = getattr(resp, "output_text", str(resp))
+    # reply = getattr(resp, "output_text", str(resp))
     reply = clean_llm_text(reply)    
     # SDK returns output_text convenience
     return reply
