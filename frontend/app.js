@@ -66,16 +66,28 @@ function addQuickActions() {
 }
 
 async function loadProjects() {
-  const res = await fetch("/api/projects");
-  const data = await res.json();
-  const select = $("projectSelect");
-  select.innerHTML = "";
-  data.projects.forEach((p) => {
-    const opt = document.createElement("option");
-    opt.value = p.proj_id;
-    opt.textContent = `${p.proj_name} (ID: ${p.proj_id})`;
-    select.appendChild(opt);
-  });
+  try {
+    const res = await fetch("/api/projects");
+    const data = await res.json();
+    
+    if (!res.ok || !data.projects) {
+      console.error("API Error:", data.error || "Unknown error");
+      addMessage("bot", `Error loading projects: ${data.error || "Unknown error"}`);
+      return;
+    }
+    
+    const select = $("projectSelect");
+    select.innerHTML = "";
+    data.projects.forEach((p) => {
+      const opt = document.createElement("option");
+      opt.value = p.proj_id;
+      opt.textContent = `${p.proj_name} (ID: ${p.proj_id})`;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error("Failed to load projects:", err);
+    addMessage("bot", `Failed to load projects: ${err.message}`);
+  }
 }
 
 function changeProject() {
@@ -101,31 +113,43 @@ function changeProject() {
 }
 
 async function startSession() {
-  projId = $("projectSelect").value;
-  projName = $("projectSelect").selectedOptions[0]?.textContent || projId;
+  try {
+    projId = $("projectSelect").value;
+    projName = $("projectSelect").selectedOptions[0]?.textContent || projId;
 
-  const res = await fetch("/api/session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ proj_id: projId }),
-  });
-  const data = await res.json();
-  sessionId = data.session_id;
+    const res = await fetch("/api/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proj_id: projId }),
+    });
+    const data = await res.json();
+    
+    if (!res.ok || !data.session_id) {
+      console.error("Session error:", data.error || "Unknown error");
+      addMessage("bot", `Error creating session: ${data.error || "Unknown error"}`);
+      return;
+    }
+    
+    sessionId = data.session_id;
 
-  $("projectPill").textContent = projName;
-  $("projectPill").classList.add("active");
-  $("onboarding").hidden = true;
-  $("chat").hidden = false;
-  $("changeProjectBtn").hidden = false;
+    $("projectPill").textContent = projName;
+    $("projectPill").classList.add("active");
+    $("onboarding").hidden = true;
+    $("chat").hidden = false;
+    $("changeProjectBtn").hidden = false;
 
-  addMessage(
-    "bot",
-    `Session active for: ${projName}\n\nI can analyze critical path, total float, predecessor/successor chains, durations, and overall schedule health. What would you like to explore?`,
-    "",
-    "welcome"
-  );
-  addQuickActions();
-  $("chatInput").focus();
+    addMessage(
+      "bot",
+      `Session active for: ${projName}\n\nI can analyze critical path, total float, predecessor/successor chains, durations, and overall schedule health. What would you like to explore?`,
+      "",
+      "welcome"
+    );
+    addQuickActions();
+    $("chatInput").focus();
+  } catch (err) {
+    console.error("Failed to start session:", err);
+    addMessage("bot", `Failed to start session: ${err.message}`);
+  }
 }
 
 async function sendMessage() {
@@ -149,7 +173,7 @@ async function sendMessage() {
     if (!res.ok) {
       const err = await res.json();
       typingEl.remove();
-      addMessage("bot", `Error: ${err.detail || res.statusText}`);
+      addMessage("bot", `Error: ${err.error || err.detail || res.statusText}`);
       return;
     }
 
