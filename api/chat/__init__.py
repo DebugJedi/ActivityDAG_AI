@@ -9,7 +9,7 @@ from ..shared.llm import render_with_llm
 
 DATA = load_schedule_data(DATA_DIR)
 SESSION = SESSIONS
-SYSTEM_PROMPT = (Path(__file__).parent.parent.parent / "prompts" / "system_prompt_schedule.md").read_text()
+SYSTEM_PROMPT = (Path(__file__).parent.parent / "prompts" / "system_prompt_schedule.md").read_text()
 
 def main(req: func.HttpRequest)-> func.HttpResponse:
     """POST /api/chat - Send a message and get AI analysis."""

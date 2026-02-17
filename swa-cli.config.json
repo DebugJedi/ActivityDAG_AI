@@ -1,0 +1,10 @@
+{
+  "configurations": {
+    "default": {
+      "appLocation": "frontend",
+      "apiLocation": "api",
+      "outputLocation": "",
+      "appDevserverUrl": ""
+    }
+  }
+}
