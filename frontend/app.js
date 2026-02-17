@@ -78,6 +78,28 @@ async function loadProjects() {
   });
 }
 
+function changeProject() {
+  // Reset state
+  sessionId = null;
+  projId = null;
+  projName = null;
+
+  // Clear chat messages
+  $("messages").innerHTML = "";
+
+  // Reset UI
+  $("chat").hidden = true;
+  $("onboarding").hidden = false;
+  $("changeProjectBtn").hidden = true;
+  $("projectPill").textContent = "No project loaded";
+  $("projectPill").classList.remove("active");
+
+  // Reset input state
+  $("chatInput").value = "";
+  $("chatInput").disabled = false;
+  $("sendBtn").disabled = false;
+}
+
 async function startSession() {
   projId = $("projectSelect").value;
   projName = $("projectSelect").selectedOptions[0]?.textContent || projId;
@@ -94,6 +116,7 @@ async function startSession() {
   $("projectPill").classList.add("active");
   $("onboarding").hidden = true;
   $("chat").hidden = false;
+  $("changeProjectBtn").hidden = false;
 
   addMessage(
     "bot",
@@ -151,6 +174,7 @@ async function sendMessage() {
 // Event listeners
 $("startBtn").addEventListener("click", startSession);
 $("sendBtn").addEventListener("click", sendMessage);
+$("changeProjectBtn").addEventListener("click", changeProject);
 $("chatInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) sendMessage();
 });

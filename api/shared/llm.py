@@ -53,7 +53,7 @@ def _fallback_template(user_message: str, result: Dict[str, Any]) -> str:
 
 def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_message: str, tool_result: Dict[str, Any]) -> str:
     """If OPENAI_API_KEY is set, uses OpenAI Responses API; else uses a template."""
-    print("OpenAI KEY: ", OPENAI_API_KEY)
+    # print("OpenAI KEY: ", OPENAI_API_KEY)
     if not AZURE_OPENAI_API_KEY:
         # console.print("The API is not working:......")
         print("The API Key is not working.......")
