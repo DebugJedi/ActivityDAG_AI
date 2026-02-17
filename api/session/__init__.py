@@ -28,5 +28,5 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,
-            mimetype="applicatoin/json"
+            mimetype="application/json"
         )
