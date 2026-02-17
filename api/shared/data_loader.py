@@ -48,14 +48,21 @@ _BLOB_CACHE: dict[tuple[str, str], ScheduleData] = {}
 
 def load_schedule_data(data_dir: Path) -> ScheduleData:
     """
-    Backwards compatible entry point.
-    If P6_DATA_SOURCE=blob, ignores data_dir and loads from Azure Blob.
-    Otherwise reads local CSVs from data_dir.
+    Loads schedule data from Azure Blob Storage or local files.
+    Priority: P6_DATA_SOURCE env var (blob or local) → auto-detect blob if connection string exists → fallback to local
     """
-    source = os.getenv("P6_DATA_SOURCE", "local").lower().strip()
+    source = os.getenv("P6_DATA_SOURCE", "").lower().strip()
+    
+    # Auto-detect blob if connection string exists and source not explicitly set to "local"
+    if not source and os.getenv("AZURE_STORAGE_CONNECTION_STRING"):
+        source = "blob"
+    
+    # Final fallback to local
+    if not source:
+        source = "local"
 
     if source == "blob":
-        container = os.getenv("P6_BLOB_CONTAINER", "").strip()
+        container = os.getenv("P6_BLOB_CONTAINER", "p6-schedule-data").strip()
         prefix = os.getenv("P6_BLOB_PREFIX", "").strip()
 
         if not container:
@@ -65,7 +72,12 @@ def load_schedule_data(data_dir: Path) -> ScheduleData:
         if cache_key in _BLOB_CACHE:
             return _BLOB_CACHE[cache_key]
 
-        names = list_blob_names(container=container, prefix=prefix)
+        try:
+            names = list_blob_names(container=container, prefix=prefix)
+            print(f"Found {len(names)} blobs in container='{container}' prefix='{prefix}': {names}")
+        except Exception as e:
+            print(f"ERROR listing blobs: {e}")
+            raise
 
         tasks_name = _pick_name_by_suffix(names, "_TASK.csv")
         pred_name = _pick_name_by_suffix(names, "_TASKPRED.csv")
@@ -75,7 +87,7 @@ def load_schedule_data(data_dir: Path) -> ScheduleData:
         if not tasks_name or not pred_name:
             raise FileNotFoundError(
                 f"Missing required blobs in container='{container}' prefix='{prefix}'. "
-                f"Need *_TASK.csv and *_TASKPRED.csv. Found: {len(names)} blobs."
+                f"Need *_TASK.csv and *_TASKPRED.csv. Found: {len(names)} blobs. Available: {names}"
             )
 
         tasks = _clean_df(load_csv_from_blob(container, tasks_name))
