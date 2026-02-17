@@ -53,7 +53,7 @@ def _fallback_template(user_message: str, result: Dict[str, Any]) -> str:
 
 def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_message: str, tool_result: Dict[str, Any]) -> str:
     """If OPENAI_API_KEY is set, uses OpenAI Responses API; else uses a template."""
-    
+    print("OpenAI KEY: ", OPENAI_API_KEY)
     if not AZURE_OPENAI_API_KEY:
         # console.print("The API is not working:......")
         print("The API Key is not working.......")
@@ -65,15 +65,15 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
     ## Need to update azurebased OpenAI
     
     try:
-        # from openai import OpenAI  
-        # client = OpenAI(api_key=OPENAI_API_KEY)
+        from openai import OpenAI  
+        client = OpenAI(api_key=OPENAI_API_KEY)
 
-        from openai import AzureOpenAI
-        client = AzureOpenAI(
-            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            api_version="2024-02-01",
-            azure_endpoint=AZURE_OPENAI_ENDPOINT
-        )
+        # from openai import AzureOpenAI
+        # client = AzureOpenAI(
+        #     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        #     api_version="2024-02-01",
+        #     azure_endpoint=AZURE_OPENAI_ENDPOINT
+        # )
         
 
         # Keep the context small-ish: include history + tool_result JSON
@@ -101,17 +101,18 @@ def render_with_llm(system_prompt: str, history: List[Dict[str, str]], user_mess
             )
         })
         
-        resp = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL"),
-            messages=messages
-        )
-        reply = resp.choices[0].message.content
-    
-        ## This need to update to how azure response are called.
-        # resp = client.responses.create(
-        #     model=OPENAI_MODEL,
-        #     input=messages,
+        # resp = client.chat.completions.create(
+        #     model=os.getenv("OPENAI_MODEL"),
+        #     messages=messages
         # )
+        # reply = resp.choices[0].message.content
+    
+        # This need to update to how azure response are called.
+        resp = client.responses.create(
+            model=OPENAI_MODEL,
+            input=messages,
+        )
+        reply = resp.output_text
 
     
         reply = clean_llm_text(reply)    

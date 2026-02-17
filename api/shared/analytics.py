@@ -1,9 +1,37 @@
 from __future__ import annotations
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, Callable
 import pandas as pd
 import networkx as nx
 from .schedule_graph import longest_time_path, _to_float
 import math
+from dataclasses import dataclass
+from pydantic import BaseModel, Field
+import re
+
+@dataclass
+class ToolSpec:
+    name: str
+    description: str
+    run: Callable[..., Any]
+    trigger_keywords: tuple[str, ...]=()
+    priority: int =0
+
+
+def heuristic_candidates(query: str, tools: list[ToolSpec])->list[ToolSpec]:
+    q = query.lower()
+    scored = []
+    for t in tools:
+        score = 0
+        for kw in t.trigger_keywords:
+            if kw in  q:
+                score+=1
+        
+        if score:
+            scored.append((score, t.priority, t))
+    scored.sort(key=lambda x: x[0], reverse =True )
+    return [t for _, t in scored[:5]]
+
+
 
 
 def _safe_to_numeric(s: pd.Series) -> pd.Series:
