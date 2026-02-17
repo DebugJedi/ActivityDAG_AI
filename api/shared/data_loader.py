@@ -32,6 +32,15 @@ def _pick_name_by_suffix(names: list[str], suffix: str) -> Optional[str]:
     # deterministic pick
     return sorted(matches)[0]
 
+def list_projects(data: ScheduleData) -> list[dict]:
+    if data.projects is not None and "proj_id" in data.projects.columns:
+        cols = [c for c in ["proj_id", "proj_short_name"] if c in data.projects.columns]
+        projects = data.projects[cols].drop_duplicates().to_dict(orient="records")
+        return [{"proj_id": p.get("proj_id", ""), "proj_name": p.get("proj_short_name", p.get("proj_id", ""))} for p in projects]
+    if "proj_id" in data.tasks.columns:
+        ids = data.tasks["proj_id"].dropna().unique().tolist()
+        return [{"proj_id": pid, "proj_name": pid} for pid in ids]
+    return []
 
 # simple warm-instance cache (helps Azure Functions a lot)
 _BLOB_CACHE: dict[tuple[str, str], ScheduleData] = {}
