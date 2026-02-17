@@ -26,6 +26,7 @@ jobs:
           action: "upload"
           app_location: "/frontend"
           api_location: "api"
+          api_build_command: "pip install -r requirements.txt"
           output_location: ""
           skip_app_build: true
   close_pull_request_job:
