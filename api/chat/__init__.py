@@ -34,35 +34,35 @@ def main(req: func.HttpRequest)-> func.HttpResponse:
         session = SESSION.get(session_id)
         if not session:
             return func.HttpResponse(
-                json.dumps({"error": "Unknown session_id"}),
+                json.dumps({"error": "Unknown session_id"}, ensure_ascii=False),
                 status_code=404,
-                mimetype="application/json"
+                mimetype="application/json; charset=utf-8"
             )
         if not message:
             return func.HttpResponse(
-                json.dumps({"error":"Empty message"}),
+                json.dumps({"error":"Empty message"}, ensure_ascii=False),
                 status_code=400,
-                mimetype="application/json"
+                mimetype="application/json; charset=utf-8"
             )
         
         data = _load_data()
         if not data:
             return func.HttpResponse(
-                json.dumps({"error": "Failed to load schedule data"}),
+                json.dumps({"error": "Failed to load schedule data"}, ensure_ascii=False),
                 status_code=500,
-                mimetype="application/json"
+                mimetype="application/json; charset=utf-8"
             )
         
         tool_result = route_query(data, session.proj_id, message)
         SESSION.append(session_id, "user", message)
         
         system_prompt = _load_prompt()
-        reply = render_with_llm(system_prompt, session.history, message, tool_result)
+        reply = render_with_llm(system_prompt, session.history, message, tool_result, tool_result.get("intent", ""))
         SESSION.append(session_id, "assistant", reply)
 
         return func.HttpResponse(
-            json.dumps({"reply": reply, "data": tool_result}),
-            mimetype="application/json"
+            json.dumps({"reply": reply, "data": tool_result}, ensure_ascii=False),
+            mimetype="application/json; charset=utf-8"
         )
     except Exception as e:
         error_details = {
@@ -72,7 +72,7 @@ def main(req: func.HttpRequest)-> func.HttpResponse:
         }
         print(f"ERROR in /api/chat: {error_details}")
         return func.HttpResponse(
-            json.dumps(error_details),
+            json.dumps(error_details, ensure_ascii=False),
             status_code=500,
-            mimetype="application/json"
+            mimetype="application/json; charset=utf-8"
         )

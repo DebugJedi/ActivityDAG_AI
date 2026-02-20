@@ -25,6 +25,6 @@ def load_csv_from_blob(container: str, blob_name: str, conn_str: Optional[str] =
     svc = _blob_service(conn_str)
     blob = svc.get_blob_client(container=container, blob=blob_name)
     data = blob.download_blob().readall()
-    df = pd.read_csv(io.BytesIO(data), dtype=str, keep_default_na=False)
+    df = pd.read_csv(io.BytesIO(data), encoding="cp1252", dtype=str, keep_default_na=False)
     df = df.replace({"": pd.NA})
     return df
