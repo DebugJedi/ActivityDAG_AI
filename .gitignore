@@ -25,6 +25,7 @@ scripts
 scripts/*
 poetry.lock
 pyproject.toml
+data_backup
 # Database
 *.db
 *.db-journal
@@ -63,4 +64,6 @@ data/*.csv
 # Azure deployment artifacts
 .azure/
 bin/
-obj/
+obj/api/.vevn/
+api/.venv/
+.venv/
