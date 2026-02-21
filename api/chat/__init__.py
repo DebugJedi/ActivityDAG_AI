@@ -7,6 +7,7 @@ from ..shared.config import DATA_DIR
 from ..shared.session_store import SESSIONS
 from ..shared.router import route_query
 from ..shared.llm import render_with_llm
+from ..shared.version import VERSION, BUILD_DATE, DESCRIPTION
 
 SESSION = SESSIONS
 
