@@ -20,6 +20,16 @@
           <div class="title">CriticalPath AI</div>
           <div class="subtitle">Schedule Intelligence</div>
           <div class="sub-subtitle">E2 Consulting Engineers, Inc.</div>
+          <div id="app-version" style="display: inline-block;
+            font-size: 0.55rem;
+            color: #4ade80;
+            letter-spacing: 0.1em;
+            margin-top: 3px;
+            background: rgba(74, 222, 128, 0.08);
+            border: 1px solid rgba(74, 222, 128, 0.2);
+            padding: 1px 6px;
+            border-radius: 4px;
+          ">v―</div>
         </div>
       </div>
       <div class="topbar-right">
@@ -98,6 +108,16 @@
 
   </div>
 
+  <script>
+    fetch("/api/version")
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById("app-version").textContent = `v${d.version} · ${d.build_date}`;
+      })
+      .catch(() => {
+        document.getElementById("app-version").textContent = "v―";
+      });
+  </script>
   <script src="app.js"></script>
 </body>
 </html>
