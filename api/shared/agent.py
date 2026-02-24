@@ -311,15 +311,15 @@ def run_agent(
 
     try:
         # Backup option
-        from openai import OpenAI  
-        client = OpenAI(api_key=OPENAI_API_KEY)
+        # from openai import OpenAI  
+        # client = OpenAI(api_key=OPENAI_API_KEY)
 
-        # from openai import AzureOpenAI
-        # client = AzureOpenAI(
-        #     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        #     api_version="2024-02-01",
-        #     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        # )
+        from openai import AzureOpenAI
+        client = AzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            api_version="2024-02-01",
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        )
     except Exception as e:
         return f"Could not connect to Azure OpenAI: {e}", {}
 
