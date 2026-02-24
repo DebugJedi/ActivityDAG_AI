@@ -25,6 +25,7 @@ import os
 import concurrent.futures
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
+from dotenv import load_dotenv
 
 from .tools import TOOL_DEFINITIONS, TOOL_NAMES
 from .analytics import(
@@ -86,6 +87,7 @@ Rules:
 9. Today's date is {today}.
 """
 
+
 class ToolExecutor:
     """
     Executes tool calls against the live schedule data.
@@ -99,6 +101,7 @@ class ToolExecutor:
         self.today = today
         self._tasks = None
         self._graph = None
+        
 
     def _get_tasks(self):
         if self._tasks is None:
@@ -291,7 +294,12 @@ class ToolExecutor:
             return fn(**arguments)
         except Exception as e:
             return {"error": f"Tool '{tool_name}' failed: {type(e).__name__}: {e}"}
-        
+
+load_dotenv()
+
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+
 def run_agent(
     data,
     proj_id:  str,
@@ -316,9 +324,9 @@ def run_agent(
 
         from openai import AzureOpenAI
         client = AzureOpenAI(
-            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            api_key=AZURE_OPENAI_API_KEY,
             api_version="2024-02-01",
-            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            azure_endpoint=AZURE_OPENAI_ENDPOINT,
         )
     except Exception as e:
         return f"Could not connect to Azure OpenAI: {e}", {}
