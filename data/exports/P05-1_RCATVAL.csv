@@ -1,0 +1,8 @@
+rsrc_catg_id,rsrc_catg_type_id,seq_num,rsrc_catg_short_name,rsrc_catg_name,parent_rsrc_catg_id
+760,104,900,ENG,Design and Engineering,
+763,104,906,CONST,Construction,
+771,104,902,PMO,PMO,
+774,104,904,ENV,Environmental,
+778,104,102,SUR,Survey,
+779,104,101,PC,Project Controls,
+780,104,103,PA,Public Affairs,
