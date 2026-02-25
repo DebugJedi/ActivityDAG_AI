@@ -1,4 +1,5 @@
 name: Deploy to Azure Static Web Apps
+
 on:
   push:
     branches:
@@ -7,6 +8,7 @@ on:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
+
 jobs:
   build_and_deploy_job:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
@@ -14,14 +16,12 @@ jobs:
     name: Build and Deploy Job
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: true
-      
-      -name: Install API Dependencies
-       run: |
-         cd api
-         pip install -r requirements.txt
-      
+
+      - name: Install API dependencies
+        run: |
+          cd api
+          pip install -r requirements.txt
+
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -33,6 +33,7 @@ jobs:
           api_location: "api"
           output_location: ""
           skip_app_build: true
+
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
