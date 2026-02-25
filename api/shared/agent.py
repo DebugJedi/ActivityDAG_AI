@@ -1,7 +1,5 @@
 from __future__ import  annotations
 
-from .config import OPENAI_API_KEY
-
 """
 agent.py - Two-turn agentic loop for CriticalPath AI. 
 
@@ -38,7 +36,7 @@ from .analytics import(
     float_by_phase,
     critical_and_near_critical
 )
-
+from .config import AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
 from .schedule_graph import ScheduleGraph
 
 _PLAN_SYSTEM_PROMPT = """\
@@ -295,10 +293,10 @@ class ToolExecutor:
         except Exception as e:
             return {"error": f"Tool '{tool_name}' failed: {type(e).__name__}: {e}"}
 
-load_dotenv()
+# load_dotenv()
 
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+# AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+# AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 
 def run_agent(
     data,
