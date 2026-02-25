@@ -112,7 +112,7 @@ def render_with_llm(
         from openai import AzureOpenAI
         client = AzureOpenAI(
             api_key=AZURE_OPENAI_API_KEY,
-            api_version="2024-02-01",
+            api_version="2024-10-21",
             azure_endpoint=AZURE_OPENAI_ENDPOINT,
         )
 

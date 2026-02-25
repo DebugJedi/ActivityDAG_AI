@@ -323,7 +323,7 @@ def run_agent(
         from openai import AzureOpenAI
         client = AzureOpenAI(
             api_key=AZURE_OPENAI_API_KEY,
-            api_version="2024-02-01",
+            api_version="2024-10-21",
             azure_endpoint=AZURE_OPENAI_ENDPOINT,
         )
     except Exception as e:
@@ -409,7 +409,7 @@ def run_agent(
     # Add the assistant's tool-call turn (required by OpenAI protocol)
     synthesis_messages.append({
         "role": "assistant",
-        "content": None,
+        "content": "",
         "tool_calls": [
             {
                 "id": tc.id,
@@ -439,6 +439,7 @@ def run_agent(
         )
         final_answer = synthesis_response.choices[0].message.content or ""
     except Exception as e:
+        print(f"Synthesis step failed: {type(e).__name__}: {e}")
         # Fallback: render tool results directly
         final_answer = _fallback_render(message, tool_results)
 
