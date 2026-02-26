@@ -32,6 +32,20 @@ def clean_llm_text(text: str) -> str:
     if not text:
         return ""
     t = text
+
+    mojibake = {
+    "\xe2\x80\x94": "\u2014",  # em dash —
+    "\xe2\x80\x99": "\u2019",  # right single quote '
+    "\xe2\x80\x9c": "\u201c",  # left double quote "
+    "\xe2\x80\x9d": "\u201d",  # right double quote "
+    "\xe2\x80\x98": "\u2018",  # left single quote '
+    "\xe2\x80\xa2": "\u2022",  # bullet •
+    "\xe2\x80\xa6": "\u2026",  # ellipsis …
+    "\xc2\xb7":     "\u00b7",  # middle dot ·
+    "\xc2":         "",        # stray Â
+}
+    for bad, good in mojibake.items():
+        t = t.replace(bad, good)
     t = t.replace("\r\n", "\n").replace("\r", "\n")
     t = re.sub(r'^\s{0,3}#{1,6}\s*', '', t, flags=re.MULTILINE)
     t = re.sub(r'\*\*(.*?)\*\*', r'\1', t)
