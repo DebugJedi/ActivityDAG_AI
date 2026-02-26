@@ -1,5 +1,6 @@
 import azure.functions as func
 import json 
+import pandas as pd
 import traceback
 from pathlib import Path
 from ..shared.data_loader import load_schedule_data
@@ -8,6 +9,7 @@ from ..shared.session_store import SESSIONS
 from ..shared.router import route_query
 from ..shared.llm import render_with_llm
 from ..shared.version import VERSION, BUILD_DATE, DESCRIPTION
+import math 
 
 SESSION = SESSIONS
 
@@ -24,6 +26,23 @@ def _load_prompt():
     except Exception as e:
         print(f"ERROR loading prompt: {e}")
         return "You are a helpful assistant."
+    
+def _json_safe(obj):
+    """
+    Custom JSON serializer for types that json.dumps can't handle natively.
+    Called by json.dumps as the 'default' fallback.
+    """
+    if isinstance(obj, set):
+        return sorted(list(obj))          # set → sorted list
+    if isinstance(obj, (pd.Timestamp,)):
+        return str(obj)                   # Timestamp → ISO string
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None                       # NaN/Inf → null
+    if hasattr(obj, 'item'):
+        return obj.item()                 # numpy scalar → Python native
+    if hasattr(obj, 'isoformat'):
+        return obj.isoformat()            # date/datetime → ISO string
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 def main(req: func.HttpRequest)-> func.HttpResponse:
     """POST /api/chat - Send a message and get AI analysis."""
@@ -62,7 +81,7 @@ def main(req: func.HttpRequest)-> func.HttpResponse:
         SESSION.append(session_id, "assistant", reply)
 
         return func.HttpResponse(
-            json.dumps({"reply": reply, "data": tool_result}, ensure_ascii=False),
+            json.dumps({"reply": reply, "data": tool_result}, ensure_ascii=False, default=_json_safe),
             mimetype="application/json; charset=utf-8"
         )
     except Exception as e:

@@ -18,6 +18,7 @@ Philosophy:
 
 from typing import Dict, List, Any, Optional, Callable
 import pandas as pd
+import numpy as np
 import networkx as nx
 from .schedule_graph import longest_time_path, _to_float
 import math
@@ -53,6 +54,30 @@ def _core_task_fields(df: pd.DataFrame) -> List[str]:
         "phys_complete_pct",
     ])
 
+def _cost_numeric(df: pd.DataFrame, col: str) -> pd.Series:
+    if col not in df.columns:
+        return pd.Series([0.0] * len(df), index=df.index)
+    return _safe_to_numeric(df[col]).fillna(0.0)
+
+def _round_cost(v: float)-> float:
+    return round(v, 2)
+
+def _join_rsrc(taskrsrc: pd.DataFrame, rsrc: pd.DataFrame) -> pd.DataFrame:
+    """Join resource names into taskrsrc"""
+    if rsrc is None or rsrc.empty:
+        return taskrsrc
+    cols = [c for c in ["rsrc_id", "rsrc_name", "rsrc_short_name"] if c in rsrc.columns]
+
+    return taskrsrc.merge(rsrc[cols], on="rsrc_id", how="left")
+
+def _join_wbs(tasks: pd.DataFrame, wbs: Optional[pd.DataFrame]) -> pd.DataFrame:
+    """Join WBS name into tasks if not already present."""
+    if wbs is None or wbs.empty or "wbs_name" in tasks.columns:
+        return tasks
+    if "wbs_id" not in tasks.columns or "wbs_id" not in wbs.columns:
+        return tasks
+    w = wbs[["wbs_id", "wbs_name"]].drop_duplicates()
+    return tasks.merge(w, on="wbs_id", how="left") 
 
 def _float_days(hr_val) -> Optional[float]:
     try:
@@ -64,7 +89,6 @@ def _float_days(hr_val) -> Optional[float]:
         return None
 
 def _clean_records(records: list) -> list:
-    """Replace NaN/inf values with None so the result is JSON-serializable."""
     cleaned = []
     for row in records:
         clean_row = {}
@@ -72,7 +96,15 @@ def _clean_records(records: list) -> list:
             try:
                 if v is None:
                     clean_row[k] = None
+                elif isinstance(v, set):               # ← ADD THIS
+                    clean_row[k] = sorted(list(v))     # set → sorted list
                 elif isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                    clean_row[k] = None
+                elif isinstance(v, (int, float)) and pd.isna(v):
+                    clean_row[k] = None
+                elif hasattr(v, 'item'):
+                    clean_row[k] = v.item()
+                elif str(type(v)) == "<class 'pandas._libs.missing.NAType'>":
                     clean_row[k] = None
                 else:
                     clean_row[k] = v
@@ -94,6 +126,7 @@ class ToolSpec:
     priority: int = 0
 
 
+
 def heuristic_candidates(query: str, tools: list) -> list:
     q = query.lower()
     scored = []
@@ -105,9 +138,442 @@ def heuristic_candidates(query: str, tools: list) -> list:
     return [t for _, _, t in scored[:5]]
 
 
-# ---------------------------------------------------------------------------
+
+# Slippage
+
+def slippage_analysis(
+        tasks: pd.DataFrame,
+        threshold_days: float = 0.0,
+) -> Dict[str, Any]:
+    """
+    Comopare baseline (target) vs current forecast (early)
+    A task is slippage when early_date > target_date.
+    
+    threshold_days: minimum slip to include (0=any slip, 5 => 5days slip)
+    Returns:
+        slipped_tasks tasks behind baseline
+        ahead_tasks: tasks ahead of baseline
+        on_baseline: tasks with no variance
+        summary: counts and worst slippage
+    """
+    if tasks.empty:
+        return {"slipped_tasks": [], "ahead_tasks": [], "on_baseline": [],
+                "summary": {}, "note": "No tasks found."}
+    
+    df = tasks.copy()
+    df["_te"] = _safe_to_datetime(df.get("target_end_date", pd.Series(dtype=str)))
+    df["_ee"] = _safe_to_datetime(df.get("early_end_date", pd.Series(dtype=str)))
+    df["_ts"] = _safe_to_datetime(df.get("target_start_date", pd.Series(dtype=str)))
+    df["_es"] = _safe_to_datetime(df.get("early_start_date", pd.Series(dtype=str)))
+
+    df["finish_variance_days"] = (df["_ee"] - df["_te"]).dt.days
+    df["start_variance_days"] = (df["_es"] - df["_ts"]).dt.days
+
+    df["finish_variance_days"] = df["finish_variance_days"].where(
+        df["finish_variance_days"].notna(), other= None
+    )
+    df["start_variance_days"] = df["start_variance_days"].where(
+        df["start_variance_days"].notna(), other=None
+    )
+    df = df[df["finish_variance_days"].notna()].copy()
+
+    slipped = df[df["finish_variance_days"] > threshold_days].sort_values(
+        "finish_variance_days", ascending=False
+    )
+    ahead = df[df["finish_variance_days"] < -threshold_days].sort_values(
+        "finish_variance_days", ascending= True
+    )
+    on_baseline = df[df["finish_variance_days"].abs() <= threshold_days]
+
+    base_cols = _core_task_fields(df)
+    extra_cols = ["finish_variance_days", "start_variance_days"]
+    cols = list(dict.fromkeys(base_cols + extra_cols))
+
+    def _rec(frame: pd.DataFrame) -> List[Dict]:
+        return _clean_records(frame[_task_cols(frame, cols)].to_dict(orient="records"))
+
+    worst = slipped.iloc[0] if not slipped.empty else None
+
+    return {
+        "slipped_tasks": _rec(slipped),
+        "ahead_tasks": _rec(ahead),
+        "on_baseline": _rec(on_baseline),
+        "summary": {
+            "total_tasks": len(df),
+            "slipped_count": len(slipped),
+            "ahead_count": len(ahead),
+            "on_baseline_count": len(on_baseline),
+            "worst_slip_days": int(slipped["finish_variance_days"].max()) if not slipped.empty else 0,
+            "worst_slip_task": worst["taks_code"] if worst is not None else None, 
+            "worst_slip_name": worst["task_name"] if worst is not None else None,
+            "avg_slip_days": round(float(slipped["finish_variance_days"].mean()), 1) if not slipped.empty else 0,
+            "threshold_days": threshold_days,
+        },
+        "note": (
+            "finish_variance_days > 0 means task is BEHIND baseline. "
+            "finish_variance_days < 0 means task is AHEAD of baseline. "
+            "Baseline  = target_end_date, Forecast = early_end_date." 
+        ),
+    }
+
+def project_end_date_variance(
+    tasks: pd.DataFrame,
+    projects: Optional[pd.DataFrame] = None,
+) -> Dict[str, Any]:
+    """Compare project-level baseline finish vs current forecast finish. """
+
+    result: Dict[str, Any] = {}
+
+    if "early_end_date" in tasks.columns:
+        ee = _safe_to_datetime(tasks["early_end_date"])
+        forecast_finish = ee.max()
+        result["forecast_finish"] = str(forecast_finish.date()) if pd.notna(forecast_finish) else None
+    else:
+        result["forecast_finish"] = None
+
+    if "target_end_date" in tasks.columns:
+        te = _safe_to_datetime(tasks["target_end_date"])
+        baseline_finish = te.max()
+        result["baseline_finish"] = str(baseline_finish.date()) if pd.notna(baseline_finish) else None
+
+    else:
+        result["baseline_finish"] = None
+
+    if projects is not None and "scd_end_date" in projects.columns:
+        scd = _safe_to_datetime(projects["scd_end_date"])
+        result["scheduled_completion_date"] = str(scd.max().date()) if pd.notna(scd.max()) else None
+    else:
+        result["scheduled_completion_date"] = None
+    
+    if result["forecast_finish"] and result["baseline_finish"]:
+        f = pd.Timestamp(result["forecast_finish"])
+        b = pd.Timestamp(result["baseline_finish"])
+        variance = (f -b).days
+        result["variance_days"] = variance
+        result["variance_direction"] = (
+            "BEHIND baseline" if variance > 0
+            else "AHEAD of baseline" if variance < 0
+            else "ON baseline"
+        )
+    else:
+        result["variance_days"] = None
+        result["variance_direction"] = "Cannot compute - missing dates"
+    
+    result["note"] = (
+        "baseline_finish = max target_end_date across all tasks."
+        "forecast_finish = max early_end_date (current CPM forecast)."
+        "scheduled_completion_date = scd_end_date from PROJECT table (contractual deadline)."
+    )
+
+    return result
+
+# Budget / Cost analysis
+
+def total_budget(
+        taskrsrc: pd.DataFrame,
+        rsrc: Optional[pd.DataFrame] =None,
+) -> Dict[str, Any]:
+    """
+    Project toatl budget brokeen down by resource type.
+    Uses target_cost from TASKRSRC as budget figure.
+    """
+    if taskrsrc is None or taskrsrc.empty:
+        return {"note": "No resource assignment data (TASKRSRC) available."}
+    
+    df = taskrsrc.copy()
+    df["target_cost"] = _cost_numeric(df, "target_cost")
+    df["act_reg_cost"] = _cost_numeric(df, "act_reg_cost")
+    df["remain_cost"] = _cost_numeric(df, "remain_cost")
+
+    total = df["target_cost"].sum()
+    actual = df["act_reg_cost"].sum()
+    remain = df["remain_cost"].sum()
+
+    by_type = (
+        df.groupby("rsrc_type")[["target_cost", "act_reg_cost", "remain_cost"]]
+        .sum()
+        .round(2)
+    )
+    type_breakdown = []
+    for rtype, row in by_type.iterrows():
+        type_breakdown.append({
+            "resource_type": rtype,
+            "label": {"RT_Labor": "Labor", "RT_Equip": "Equipment", "RT_Mat": "Material"}.get(rtype, rtype),
+            "budget": _round_cost(row["target_cost"]),
+            "actual_cost": _round_cost(row["act_reg_cost"]),
+            "remaining_cost": _round_cost(row["remain_cost"]),
+            "budget_pct": round(row["target_cost"] / total * 100, 1) if total else 0,
+        })
+
+    return {
+        "total_budget": _round_cost(total),
+        "total_actual_cost": _round_cost(actual),
+        "total_remaining": _round_cost(remain),
+        "percent_spend": round(actual / total * 100, 1) if total else 0,
+        "by_resource_type": type_breakdown,
+        "currency": "USD",
+        "note": "budget = target_cost. actual = act_reg_cost. remaining = remain_cost.",
+    }
+
+def budget_by_phase(
+        tasks: pd.DataFrame,
+        taskrsrc: pd.DataFrame,
+        wbs: Optional[pd.DataFrame] = None,
+        phase_filter: Optional[str] =None,
+) -> Dict[str, Any]:
+    """
+    Budget breakdown by WBS phase.
+    Joins TAKSRSRC -> TASK -> WBS to group costs by schedule phase.
+    phase_filter: Optional substring to filter to a specific phase.
+    """
+
+    if taskrsrc is None or taskrsrc.empty:
+        return {"note": "No resource assingment data (TASKRSRC) available."}
+    
+    tasks_with_wbs = _join_wbs(tasks.copy(), wbs)
+
+    df = taskrsrc.copy()
+    df["target_cost"] = _cost_numeric(df, "target_cost")
+    df["act_reg_cost"] = _cost_numeric(df, "act_reg_cost")
+    df["remain_cost"] = _cost_numeric(df, "remain_cost")
+
+    task_cols_needed = [c for c in ["task_id", "task_code", "task_name", "wbs_id", "wbs_name"] if c in tasks_with_wbs.columns]
+    merged = df.merge(tasks_with_wbs[task_cols_needed], on="task_id", how="left")
+
+    if "wbs_name" not in merged.columns:
+        return {"note": "WBS datea not available - cannot break down by phase."}
+    
+    if phase_filter:
+        mask = merged["wbs_name"].astype(str).str.contains(phase_filter, case=False, na=False)
+        merged = merged[mask]
+        if merged.empty:
+            return {
+                "note": f"No cost data found for phase '{phase_filter}'.",
+                "phase_filter": phase_filter,
+                "phases": [],
+            }
+        
+    by_phase = (
+        merged.groupby("wbs_name")[["target_cost", "act_reg_cost", "remain_cost"]]
+        .sum()
+        .sort_values("target_cost", ascending=False)
+        .round(2)
+    )
+
+    total = by_phase["target_cost"].sum()
+    phases = []
+    for wbs_name, row in by_phase.iterrows():
+        phases.append({
+            "phase": wbs_name,
+            "budget": _round_cost(row["target_cost"]),
+            "actual_cost": _round_cost(row["act_reg_cost"]),
+            "remaining_cost": _round_cost(row["remain_cost"]),
+            "budget_pct": round(row["target_cost"] / total * 100, 1) if total else 0,
+        })
+
+    return {
+        "phases": phases,
+        "total_budget": _round_cost(total),
+        "phase_count": len(phases),
+        "phase_filter": phase_filter,
+    }
+
+def top_activities_by_cost(
+        tasks: pd.DataFrame,
+        taskrsrc: pd.DataFrame,
+        wbs: Optional[pd.DataFrame] = None,
+        top_n: int = 20,
+        rsrc_type_filter: Optional[str] = None,
+) -> Dict[str, Any]:
+    if taskrsrc is None or taskrsrc.empty:
+        return {"note": "No resource assignment data (TASKRSRC) available."}
+
+    df = taskrsrc.copy()
+    df["target_cost"] = _cost_numeric(df, "target_cost")
+
+    if rsrc_type_filter:
+        df = df[df["rsrc_type"].astype(str) == rsrc_type_filter]
+
+    tasks_with_wbs = _join_wbs(tasks.copy(), wbs)
+    task_cols_needed = [c for c in ["task_id", "task_code", "task_name", "wbs_name",
+                                    "early_start_date", "early_end_date", "status_code"]
+                        if c in tasks_with_wbs.columns]
+
+    merged = df.merge(tasks_with_wbs[task_cols_needed], on="task_id", how="left")
+
+    groupby_cols = list([c for c in ["task_id", "task_code", "task_name", "wbs_name"]
+                         if c in merged.columns])
+
+    by_task = (
+        merged.groupby(groupby_cols, as_index=False)["target_cost"]
+        .sum()
+        .sort_values("target_cost", ascending=False)
+        .head(top_n)
+    )
+
+    activities = []
+    for _, row in by_task.iterrows():
+        activities.append({
+            "task_code": str(row.get("task_code", "")),
+            "task_name": str(row.get("task_name", "")),
+            "wbs_phase": str(row.get("wbs_name", "")),
+            "budget": _round_cost(float(row["target_cost"])),
+        })
+
+    return {
+        "activities": activities,
+        "count": len(activities),
+        "top_n": top_n,
+        "total_budget": _round_cost(float(by_task["target_cost"].sum())),
+        "rsrc_type_filter": str(rsrc_type_filter) if rsrc_type_filter else None,
+    }
+
+def resource_cost_breakdown(
+        taskrsrc: pd.DataFrame,
+        rsrc: Optional[pd.DataFrame] = None,
+        top_n: int = 20,
+        rsrc_type_filter: Optional[str] = None,
+) -> Dict[str, Any]:
+    
+    if taskrsrc is None or taskrsrc.empty:
+        return {"note": "No resource assignment data (TASKRSRC) available."}
+    
+    df = _join_rsrc(taskrsrc.copy(), rsrc)
+    df["target_cost"] = _cost_numeric(df, "target_cost")
+    df["act_reg_cost"] = _cost_numeric(df, "act_reg_cost")
+    df["remain_cost"] = _cost_numeric(df, "remain_cost")
+    df["target_qty"] = _cost_numeric(df, "target_qty")
+
+    if rsrc_type_filter:
+        df = df[df["rsrc_type"].astype(str) == rsrc_type_filter]
+
+    name_col = "rsrc_name" if "rsrc_name" in df.columns else "rsrc_id"
+
+    by_rsrc = (
+        df.groupby([name_col, "rsrc_type"])[["target_cost", "act_reg_cost", "remain_cost", "target_qty"]]
+        .sum()
+        .sort_values("target_cost", ascending=False)
+        .head(top_n)
+        .reset_index()
+    )
+
+    resources = []
+
+    for _, row in by_rsrc.iterrows():
+        rtype = str(row.get("rsrc_type", ""))
+        resources.append({
+            "resource_name": str(row.get(name_col, "")),
+            "resource_type": rtype,
+            "type_label": {"RT_Labor": "Labor", "RT_Equip": "Equipment", "RT_Mat": "Material"}.get(rtype, rtype),
+            "budget": _round_cost(row["target_cost"]),
+            "actual_cost": _round_cost(row["act_reg_cost"]),
+            "remaining_cost": _round_cost(row["remain_cost"]),
+            "planned_hours": _round_cost(row["target_qty"]),
+        })
+
+    return {
+        "resources":        resources,
+        "count":            len(resources),
+        "top_n":            top_n,
+        "rsrc_type_filter": rsrc_type_filter,
+    }
+
+def tasks_for_resource(
+    tasks: pd.DataFrame,
+    taskrsrc: pd.DataFrame,
+    rsrc: Optional[pd.DataFrame] = None,
+    resource_name: Optional[str] = None,
+    resource_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    All tasks assigned to a specific resource.
+    Lookup by resource name (fuzzy) or exact rsrc_id.
+    """
+    if taskrsrc is None or taskrsrc.empty:
+        return {"note": "No resource assignment data available."}
+
+    df = _join_rsrc(taskrsrc.copy(), rsrc)
+    df["target_cost"] = _cost_numeric(df, "target_cost")
+    df["target_qty"]  = _cost_numeric(df, "target_qty")
+
+    # Find matching resource
+    if resource_id:
+        mask = df["rsrc_id"].astype(str) == str(resource_id)
+    elif resource_name:
+        name_col = "rsrc_name" if "rsrc_name" in df.columns else "rsrc_id"
+        mask = df[name_col].astype(str).str.contains(resource_name, case=False, na=False)
+    else:
+        return {"note": "Provide resource_name or resource_id."}
+
+    matched = df[mask]
+    if matched.empty:
+        available = df["rsrc_name"].dropna().unique().tolist() if "rsrc_name" in df.columns else []
+        return {
+            "note": f"Resource '{resource_name or resource_id}' not found.",
+            "available_resources": sorted(available)[:20],
+        }
+
+    # Join task details
+    task_cols_needed = [c for c in ["task_id", "task_code", "task_name", "wbs_name",
+                                     "early_start_date", "early_end_date",
+                                     "status_code", "total_float_hr_cnt"] if c in tasks.columns]
+    merged = matched.merge(tasks[task_cols_needed], on="task_id", how="left")
+
+    task_list = []
+    for _, row in merged.iterrows():
+        task_list.append({
+            "task_code":     str(row.get("task_code", "")),
+            "task_name":     str(row.get("task_name", "")),
+            "wbs_phase":     str(row.get("wbs_name", "")),
+            "planned_hours": _round_cost(row.get("target_qty", 0)),
+            "budget":        _round_cost(row.get("target_cost", 0)),
+            "start_date":    str(row.get("early_start_date", "")),
+            "end_date":      str(row.get("early_end_date", "")),
+            "status":        str(row.get("status_code", "")),
+        })
+
+    rsrc_name = matched["rsrc_name"].iloc[0] if "rsrc_name" in matched.columns else resource_id
+    return {
+        "resource_name":    str(rsrc_name),
+        "resource_type":    str(matched["rsrc_type"].iloc[0]) if "rsrc_type" in matched.columns else "",
+        "tasks":            task_list,
+        "task_count":       len(task_list),
+        "total_budget":     _round_cost(matched["target_cost"].sum()),
+        "total_hours":      _round_cost(matched["target_qty"].sum()),
+    }
+
+
+def critical_path_cost(
+    tasks: pd.DataFrame,
+    taskrsrc: pd.DataFrame,
+    critical_task_ids: List[str],
+) -> Dict[str, Any]:
+    """
+    Budget for tasks on the critical path specifically.
+    Pass critical_task_ids from critical_path_summary().
+    """
+    if taskrsrc is None or taskrsrc.empty or not critical_task_ids:
+        return {"note": "No critical path or resource data available."}
+
+    df = taskrsrc.copy()
+    df["target_cost"] = _cost_numeric(df, "target_cost")
+    df["task_id_str"] = df["task_id"].astype(str)
+
+    cp_rsrc = df[df["task_id_str"].isin([str(t) for t in critical_task_ids])]
+
+    total = cp_rsrc["target_cost"].sum()
+    by_type = cp_rsrc.groupby("rsrc_type")["target_cost"].sum().round(2).to_dict()
+
+    return {
+        "critical_path_budget":  _round_cost(total),
+        "critical_task_count":   len(critical_task_ids),
+        "by_resource_type":      by_type,
+        "note": "Budget for tasks on the critical path only.",
+    }
+
+
 # 1. List all activities
-# ---------------------------------------------------------------------------
+
 
 def list_all_activities(tasks: pd.DataFrame) -> Dict[str, Any]:
     """
@@ -399,7 +865,7 @@ def project_total_float(tasks: pd.DataFrame) -> Dict[str, Any]:
             "task_type": str(basis.get("task_type", "")),
             "total_float_hr_cnt": str(basis.get("total_float_hr_cnt", "")),
         },
-         "intepretation": (
+         "interpretation": (
             "A finish milestone float of 0 is normal in CPM - it means the project end date "
             "is the dealine. Individual task may still have significant float. "
             "See float_distribution for full picture."

@@ -112,4 +112,94 @@ RESPONSE_STRATEGIES = {
         ),
         "format_hint": "structured",
     },
+
+    "SLIPPAGE": {
+    "mandatory_prefix": (
+        "MANDATORY RULE: Structure the answer in two clearly labeled groups: "
+        "BEHIND BASELINE (finish_variance_days > 0) and AHEAD OF BASELINE (finish_variance_days < 0). "
+        "Lead with the total count of slipped tasks and the worst single slippage in days. "
+        "For each slipped task show: task_code, task_name, and finish_variance_days. "
+        "Sort slipped tasks worst-first. "
+        "If no tasks have slipped, state that clearly — it is good news. "
+        "Do not confuse slippage with float — they are completely different concepts. "
+        "finish_variance_days > 0 = behind baseline. finish_variance_days < 0 = ahead of baseline."
+    ),
+    "format_hint": "grouped_list",
+},
+
+    "PROJECT_VARIANCE": {
+        "mandatory_prefix": (
+            "MANDATORY RULE: State these three dates clearly at the top: "
+            "1. Baseline finish (max target_end_date across all tasks) "
+            "2. Current forecast finish (max early_end_date across all tasks) "
+            "3. Scheduled completion date (scd_end_date from PROJECT table if available) "
+            "Then state the variance in calendar days. "
+            "Positive variance = behind baseline. Negative = ahead. Zero = on baseline. "
+            "If variance is 0, state the project is currently tracking to its baseline."
+        ),
+        "format_hint": "summary",
+},
+
+    "BUDGET_TOTAL": {
+        "mandatory_prefix": (
+            "MANDATORY RULE: State the total project budget in dollars first. "
+            "Then show the three-way split: Labor, Equipment, and Material "
+            "with dollar amount AND percentage of total for each. "
+            "If actual costs are available show percent spent. "
+            "Format all dollar amounts with $ sign and comma separators (e.g. $292,540,611). "
+            "Do not use technical field names like target_cost — say 'budget' instead."
+        ),
+       "format_hint": "summary",
+},
+
+    "BUDGET_BY_PHASE": {
+        "mandatory_prefix": (
+            "MANDATORY RULE: State the total budget at the top. "
+            "Then list every phase with its budget sorted largest first. "
+            "Show dollar amount and percentage of total for each phase. "
+            "If a phase filter was applied, confirm which phase was searched. "
+            "Format all dollar amounts with $ and commas."
+        ),
+        "format_hint": "numbered_list",
+},
+
+    "BUDGET_TOP_TASKS": {
+        "mandatory_prefix": (
+            "MANDATORY RULE: List each activity with its task_code, task_name, WBS phase, "
+            "and budget in dollars. Sort highest cost first. "
+            "State how many activities are shown and the combined budget they represent. "
+            "Format all dollar amounts with $ and commas."
+        ),
+        "format_hint": "numbered_list",
+},
+
+    "RESOURCE_SPLIT": {
+        "mandatory_prefix": (
+            "MANDATORY RULE: Show Labor, Equipment, and Material as three separate labeled sections. "
+            "For each show: dollar amount and percentage of total budget. "
+            "State the total project budget at the top before breaking it down. "
+            "Use plain language — say Labor, Equipment, Material not RT_Labor, RT_Equip, RT_Mat."
+        ),
+        "format_hint": "grouped_list",
+},
+
+    "RESOURCE_COST": {
+        "mandatory_prefix": (
+            "MANDATORY RULE: List each resource with its name, type (Labor / Equipment / Material), "
+            "and total budget. Sort highest budget first. "
+            "State how many resources are shown. "
+            "Format all dollar amounts with $ and commas."
+        ),
+        "format_hint": "numbered_list",
+},
+
+    "RESOURCE_TASKS": {
+        "mandatory_prefix": (
+            "MANDATORY RULE: State the resource name and type at the top. "
+            "Then list every task assigned to them with: task_code, task_name, "
+            "planned hours, budget, and scheduled start and finish dates. "
+            "State total task count and total planned hours at the end."
+        ),
+        "format_hint": "structured",
+},
 }

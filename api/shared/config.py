@@ -10,7 +10,7 @@ def _get_data_dir():
         return Path(env_dir)
     
     # Try relative path from this file
-    relative_path = Path(__file__).parent.parent.parent / "data"
+    relative_path = Path(__file__).parent.parent.parent / "data/exports"
     if relative_path.exists():
         return relative_path
     

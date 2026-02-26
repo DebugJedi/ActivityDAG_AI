@@ -36,13 +36,21 @@ from .analytics import (
     project_total_float,
     critical_and_near_critical,
     float_by_phase,
+    slippage_analysis,
+    project_end_date_variance,
+    total_budget,
+    budget_by_phase,
+    top_activities_by_cost,
+    resource_cost_breakdown,
+    tasks_for_resource,
 )
 
 # ---------------------------------------------------------------------------
 # Routing decision thresholds
 # ---------------------------------------------------------------------------
 
-_DIRECT_INTENTS = {"LIST_ACTIVITIES", "CRITICAL_PATH", "DURATION", "PROJECT_TOTAL_FLOAT", "FLOAT", "PHASE_FLOAT", "HIGH_FLOAT"}
+_DIRECT_INTENTS = {"LIST_ACTIVITIES", "CRITICAL_PATH", "DURATION", "PROJECT_TOTAL_FLOAT", "FLOAT", "PHASE_FLOAT", "HIGH_FLOAT", "SLIPPAGE",
+                   "PROJECT_VARIANCE", "BUDGET_TOTAL", "BUDGET_BY_PHASE", "BUDGET_TOP_TASKS", "RESOURCE_SPLIT", "RESOURCE_COST", "RESOURCE_TASKS"}
 _AGENT_INTENTS  = {"UNKNOWN", "HEALTH", "DATE_WINDOW"}
 _CONFIDENCE_THRESHOLD = 0.80
 
@@ -62,6 +70,112 @@ def _should_use_agent(qf: QueryFrame) -> bool:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _direct_slippage(data, proj_id, qf):
+    tasks  = _project_tasks_with_wbs(data, proj_id)
+    result = _base_envelope(qf, proj_id, "direct")
+    result["data"] = slippage_analysis(tasks)
+    return result
+
+def _direct_project_variance(data, proj_id, qf):
+    tasks    = _project_tasks_with_wbs(data, proj_id)
+    result   = _base_envelope(qf, proj_id, "direct")
+    projects = data.projects if hasattr(data, "projects") else None
+    result["data"] = project_end_date_variance(tasks, projects, proj_id)
+    return result
+
+def _direct_budget_total(data, proj_id, qf):
+    result = _base_envelope(qf, proj_id, "direct")
+    tr = _get_taskrsrc(data, proj_id)
+    if tr is None:
+        result["note"] = "Cost data (TASKRSRC) is not available for this project."
+        return result
+    result["data"] = total_budget(tr)
+    return result
+
+def _direct_budget_by_phase(data, proj_id, qf):
+    tasks  = _project_tasks_with_wbs(data, proj_id)
+    result = _base_envelope(qf, proj_id, "direct")
+    tr = _get_taskrsrc(data, proj_id)
+    if tr is None:
+        result["note"] = "Cost data (TASKRSRC) is not available for this project."
+        return result
+    phase = qf.meta.get("phase_filter") or None
+    result["data"] = budget_by_phase(tasks, tr, phase_filter=phase)
+    return result
+
+def _direct_budget_top_tasks(data, proj_id, qf):
+    tasks  = _project_tasks_with_wbs(data, proj_id)
+    result = _base_envelope(qf, proj_id, "direct")
+    tr = _get_taskrsrc(data, proj_id)
+    if tr is None:
+        result["note"] = "Cost data (TASKRSRC) is not available for this project."
+        return result
+    top_n = qf.top_n or 10
+    result["data"] = top_activities_by_cost(tasks, tr, top_n=top_n)
+    return result
+
+def _direct_resource_split(data, proj_id, qf):
+    result = _base_envelope(qf, proj_id, "direct")
+    tr = _get_taskrsrc(data, proj_id)
+    if tr is None:
+        result["note"] = "Cost data (TASKRSRC) is not available for this project."
+        return result
+    result["data"] = total_budget(tr)  # total_budget already includes the 3-way split
+    return result
+
+def _direct_resource_cost(data, proj_id, qf):
+    result = _base_envelope(qf, proj_id, "direct")
+    tr   = _get_taskrsrc(data, proj_id)
+    rsrc = _get_rsrc(data)
+    if tr is None:
+        result["note"] = "Cost data (TASKRSRC) is not available for this project."
+        return result
+    top_n = qf.top_n or 15
+    result["data"] = resource_cost_breakdown(tr, rsrc, top_n=top_n)
+    return result
+
+def _direct_resource_tasks(data, proj_id, qf):
+    tasks  = _project_tasks_with_wbs(data, proj_id)
+    result = _base_envelope(qf, proj_id, "direct")
+    tr   = _get_taskrsrc(data, proj_id)
+    rsrc = _get_rsrc(data)
+    if tr is None:
+        result["note"] = "Cost data (TASKRSRC) is not available for this project."
+        return result
+    # Resource name comes from task_token — user says "tasks for Project Manager"
+    resource_name = qf.task_token or qf.meta.get("phase_filter") or ""
+    if not resource_name:
+        m = re.search(r"(?:for|assigned to|workload for)\s+([A-Za-z\s]+?)(?:\?|$)", 
+                  qf.text, re.IGNORECASE)
+        resource_name = m.group(1).strip() if m else ""
+
+    if not resource_name:    
+        result["note"] = "Please specify a resource name, e.g. 'tasks for Project Manager'."
+        return result
+    
+    result["data"] = tasks_for_resource(tasks, tr, rsrc, resource_name=resource_name)
+    return result
+
+
+
+def _get_taskrsrc(data, proj_id: str):
+    """
+    Returns TASKRSRC filtered to proj_id, or None if not loaded.
+    Guards every cost handler — if taskrsrc is missing the handler 
+    returns a clean error instead of crashing.
+    """
+    if not hasattr(data, "taskrsrc") or data.taskrsrc is None:
+        return None
+    return data.taskrsrc[
+        data.taskrsrc["proj_id"].astype(str) == str(proj_id)
+    ].copy()
+
+def _get_rsrc(data):
+    """Returns RSRC lookup table or None."""
+    if not hasattr(data, "rsrc") or data.rsrc is None:
+        return None
+    return data.rsrc.copy()
 
 def _project_tasks_with_wbs(data, proj_id: str):
     tasks = data.tasks[data.tasks["proj_id"].astype(str) == str(proj_id)].copy()
@@ -239,9 +353,17 @@ _DIRECT_HANDLERS = {
     "SUCCESSORS": _direct_successors,
     "PHASE_FLOAT": _direct_phase_float,
     "HIGH_FLOAT": _direct_high_float,
+    "SLIPPAGE":            _direct_slippage,
+    "PROJECT_VARIANCE":    _direct_project_variance,
+    "BUDGET_TOTAL":        _direct_budget_total,
+    "BUDGET_BY_PHASE":     _direct_budget_by_phase,
+    "BUDGET_TOP_TASKS":    _direct_budget_top_tasks,
+    "RESOURCE_SPLIT":      _direct_resource_split,
+    "RESOURCE_COST":       _direct_resource_cost,
+    "RESOURCE_TASKS":      _direct_resource_tasks,
 }
 
-_NOT_IMPLEMENTED = {"CHANGE_SUMMARY", "SLIPPAGE", "RESOURCE_OVERALLOCATED"}
+_NOT_IMPLEMENTED = {"CHANGE_SUMMARY", "RESOURCE_OVERALLOCATED"}
 
 
 # ---------------------------------------------------------------------------

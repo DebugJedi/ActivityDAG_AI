@@ -47,6 +47,12 @@ VALID_INTENTS = {
     "UNKNOWN",              # fallback — agent handles with full context
     'PHASE_FLOAT',          # "float for the construction phase", "risks in procurement"
     'HIGH_FLOAT',          # "tasks with high float", "most flexible activities"
+    'PROJECT_VARIANCE',
+    'BUDGET_TOTAL',
+    'BUDGET_BY_PHASE',
+    'BUDGET_TOP_TASKS',
+    'RESOURCE_COST',
+    'RESOURCE_TASKS',
 }
 
 # DateWindow — always stores resolved Python date objects, never strings
@@ -103,7 +109,6 @@ class QueryFrame:
     meta:                   Dict[str, Any]      = field(default_factory=dict)
 
 # Regex patterns
-
 _TASK_CODE_RE = re.compile(r"\b[A-Z]{1,6}\d{1,6}\b")       # CON2000, PER1000
 _TASK_ID_RE   = re.compile(r"\b\d{4,}\b")                   # 141166
 _TOP_N_RE     = re.compile(r"\btop\s+(\d{1,3})\b", re.IGNORECASE)
@@ -404,6 +409,41 @@ def _detect_signals(p: str, task_ref: bool) -> Dict[str, bool]:
         )),
         "compare":       any(k in p for k in _COMPARE_MARKERS),
         "health":        any(k in p for k in ("health", "open end", "dangling", "compliance", "best practice")),
+        "project_variance": any(k in p for k in (
+            "project end date", "project finish", "project completion",
+            "how much has slipped", "overall variance", "project delay",
+            "completion date moved", "project baseline", "finish date moved",
+        )),
+        "budget_total": any(k in p for k in (
+            "total budget", "project budget", "total cost", "overall budget",
+            "budget summary", "cost summary", "how much does it cost",
+            "how much is the project", "labor equipment material",
+        )),
+        "budget_by_phase": any(k in p for k in (
+            "budget by phase", "cost by phase", "phase budget",
+            "how much for design", "how much for construction",
+            "design budget", "construction budget", "cost per phase",
+        )),
+        "budget_top_tasks": any(k in p for k in (
+            "most expensive", "highest cost", "top cost", "biggest budget",
+            "most costly", "expensive tasks", "which activities cost the most",
+        )),
+        "resource_split": any(k in p for k in (
+            "labor vs equipment", "material split", "resource type",
+            "how much is labor", "how much is equipment", "how much is material",
+            "cost by type", "labor cost", "equipment cost", "material cost",
+        )),
+        "resource_cost": any(k in p for k in (
+            "most expensive resource", "top resource", "highest resource cost",
+            "resource budget", "which resource costs most", "resource ranking",
+        )),
+        "resource_tasks": (
+            task_ref is False and
+            any(k in p for k in (
+                "assigned to", "tasks for", "activities for",
+                "who is working on", "workload for",
+            ))
+        ),
     }
 
 # Stage 1: Regex pre-screen
@@ -443,6 +483,13 @@ def _regex_classify(text: str) -> Tuple[Optional[str], float]:
             return "SLIPPAGE", 0.85
         return "CHANGE_SUMMARY", 0.75
     if signals["health"]: return "HEALTH", 0.75
+    if signals["project_variance"]:  return "PROJECT_VARIANCE",  0.88
+    if signals["budget_total"]:      return "BUDGET_TOTAL",      0.90
+    if signals["budget_by_phase"]:   return "BUDGET_BY_PHASE",   0.88
+    if signals["budget_top_tasks"]:  return "BUDGET_TOP_TASKS",  0.87
+    if signals["resource_split"]:    return "RESOURCE_SPLIT",    0.88
+    if signals["resource_cost"]:     return "RESOURCE_COST",     0.87
+    if signals["resource_tasks"]:    return "RESOURCE_TASKS",    0.83
     return None, 0.0
 
 
@@ -472,6 +519,13 @@ Intent values (ONLY these are valid):
   UNKNOWN             — cannot determine
   PHASE_FLOAT  — float risk for a specific WBS phase or task type (design, construction, permits)
   HIGH_FLOAT   — tasks with high float, safely delayable tasks, reallocation opportunities
+  PROJECT_VARIANCE    — how much the project finish date has moved from baseline
+  BUDGET_TOTAL        — total project budget, cost summary, labor/equipment/material split
+  BUDGET_BY_PHASE     — budget broken down by WBS phase or schedule phase
+  BUDGET_TOP_TASKS    — which activities have the highest cost
+  RESOURCE_SPLIT      — labor vs equipment vs material cost breakdown
+  RESOURCE_COST       — which resources are most expensive
+  RESOURCE_TASKS      — what tasks are assigned to a specific resource
 
 CRITICAL RULE: secondary_intents must list ALL other intents present in the query.
 Example: "what is the critical path and which tasks have low float?"
