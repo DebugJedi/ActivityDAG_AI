@@ -219,10 +219,14 @@ def slippage_analysis(
 def project_end_date_variance(
     tasks: pd.DataFrame,
     projects: Optional[pd.DataFrame] = None,
+    proj_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Compare project-level baseline finish vs current forecast finish. """
 
     result: Dict[str, Any] = {}
+
+    if projects is not None and proj_id is not None and "proj_id" in projects.columns:
+        projects = projects[projects["proj_id"].astype(str) == str(proj_id)]
 
     if "early_end_date" in tasks.columns:
         ee = _safe_to_datetime(tasks["early_end_date"])
