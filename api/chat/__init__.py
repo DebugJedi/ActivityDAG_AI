@@ -7,7 +7,7 @@ from ..shared.data_loader import load_schedule_data
 from ..shared.config import DATA_DIR
 from ..shared.session_store import SESSIONS
 from ..shared.router import route_query
-from ..shared.llm import render_with_llm
+from ..shared.llm import render_response
 from ..shared.version import VERSION, BUILD_DATE, DESCRIPTION
 import math 
 
@@ -26,6 +26,21 @@ def _load_prompt():
     except Exception as e:
         print(f"ERROR loading prompt: {e}")
         return "You are a helpful assistant."
+    
+def _sanitize_for_json(obj):
+    """
+    Recursively walk the entire response dict and replace
+    any float NaN/Inf with None before json.dumps sees it.
+    """
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_for_json(v) for v in obj]
+    elif isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    elif isinstance(obj, set):
+        return sorted([_sanitize_for_json(v) for v in obj])
+    return obj
     
 def _json_safe(obj):
     """
@@ -77,11 +92,14 @@ def main(req: func.HttpRequest)-> func.HttpResponse:
         SESSION.append(session_id, "user", message)
         
         system_prompt = _load_prompt()
-        reply = render_with_llm(system_prompt, session.history, message, tool_result, tool_result.get("intent", ""))
+        reply = render_response(system_prompt, session.history, message, tool_result)
         SESSION.append(session_id, "assistant", reply)
 
+        payload = _sanitize_for_json({"reply": reply, "data": tool_result})
+
         return func.HttpResponse(
-            json.dumps({"reply": reply, "data": tool_result}, ensure_ascii=False, default=_json_safe),
+            
+            json.dumps(payload, ensure_ascii=False, default=_json_safe),
             mimetype="application/json; charset=utf-8"
         )
     except Exception as e:

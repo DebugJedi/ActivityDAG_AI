@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import networkx as nx
+import math
 
 def _to_float(v, default=0.0) -> float:
     try:
@@ -51,7 +52,7 @@ class ScheduleGraph:
                 task_name=str(t.get("task_name") or ""),
                 wbs_name=str(t.get("wbs_name") or ""),
                 duration_hr=dur_hr,
-                total_float_hr=tf_hr,
+                total_float_hr=tf_hr if not math.isnan(tf_hr) else None,
                 driving_path_flag=str(t.get("driving_path_flag") or ""),
             )
 

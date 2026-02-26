@@ -159,13 +159,13 @@ class ToolExecutor:
     
     def get_float_risk_analysis(
             self,
-            near_ciritical_threshold_days: float = 30.0,
+            near_critical_threshold_days: float = 30.0,
             top_n_non_critical: Optional[int] = None,
             **kwargs,
     ) -> Dict[str, Any]:
         return float_risk_analysis(
             self._get_tasks(),
-            near_critical_threshold_days=float(near_ciritical_threshold_days),
+            near_critical_threshold_days=float(near_critical_threshold_days),
             top_n=top_n_non_critical,
         )
     
@@ -255,15 +255,15 @@ class ToolExecutor:
     def get_float_by_phase(
             self, 
             phase_filter: Optional[str] = None,
-            near_ciritical_threshold_days: float = 30.0,
+            near_critical_threshold_days: float = 30.0,
             **kwargs,
     ) -> Dict[str, Any]:
         
         
         return float_risk_analysis(
             self._get_tasks(),
-            phase_filter=phase_filter,
-            near_critical_threshold_days=float(near_ciritical_threshold_days),
+            phase_filter=phase_filter if phase_filter else "",
+            near_critical_threshold_days=float(near_critical_threshold_days),
             
     )
 

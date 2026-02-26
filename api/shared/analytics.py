@@ -958,7 +958,7 @@ def critical_path_summary(G: nx.DiGraph) -> Dict[str, Any]:
             "wbs_name": G.nodes[tid].get("wbs_name", ""),
             "duration_hr": float(_to_float(G.nodes[tid].get("duration_hr", 0.0))),
             "total_float_hr_cnt": G.nodes[tid].get("total_float_hr_cnt",
-                                                    G.nodes[tid].get("total_float_hr", "")),
+                                                    G.nodes[tid].get("total_float_hr", 0.0)),
         }
         for tid in path[:200]
     ]

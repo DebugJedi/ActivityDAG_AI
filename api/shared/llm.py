@@ -34,16 +34,16 @@ def clean_llm_text(text: str) -> str:
     t = text
 
     mojibake = {
-    "\xe2\x80\x94": "\u2014",  # em dash —
-    "\xe2\x80\x99": "\u2019",  # right single quote '
-    "\xe2\x80\x9c": "\u201c",  # left double quote "
-    "\xe2\x80\x9d": "\u201d",  # right double quote "
-    "\xe2\x80\x98": "\u2018",  # left single quote '
-    "\xe2\x80\xa2": "\u2022",  # bullet •
-    "\xe2\x80\xa6": "\u2026",  # ellipsis …
-    "\xc2\xb7":     "\u00b7",  # middle dot ·
-    "\xc2":         "",        # stray Â
-}
+        "\xe2\x80\x94": "\u2014",  # em dash —
+        "\xe2\x80\x99": "\u2019",  # right single quote '
+        "\xe2\x80\x9c": "\u201c",  # left double quote "
+        "\xe2\x80\x9d": "\u201d",  # right double quote "
+        "\xe2\x80\x98": "\u2018",  # left single quote '
+        "\xe2\x80\xa2": "\u2022",  # bullet •
+        "\xe2\x80\xa6": "\u2026",  # ellipsis …
+        "\xc2\xb7":     "\u00b7",  # middle dot ·
+        "\xc2":         "",        # stray Â
+    }
     for bad, good in mojibake.items():
         t = t.replace(bad, good)
     t = t.replace("\r\n", "\n").replace("\r", "\n")
@@ -143,7 +143,7 @@ def render_with_llm(
         base_instructions = (
             "Write a concise, stakeholder-friendly answer."
             "Include task_code + task_name when listing activities."
-            "Convert hours to days (÷8) for readability."
+            "Convert hours to days (divide by 8) for readability."
             "If results are empty, explain what that means in context."
         )
 
