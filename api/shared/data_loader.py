@@ -207,11 +207,18 @@ def wait_for_preload(timeout: Optional[float] = 10.0) -> bool:
 
 def load_schedule_data(data_dir: Path) -> ScheduleData:
     """
-    Backwards compatible entry point.
-    If P6_DATA_SOURCE=blob, ignores data_dir and loads from Azure Blob.
-    Otherwise reads local CSVs from data_dir.
+    Loads schedule data from Azure Blob Storage or local files.
+    Priority: P6_DATA_SOURCE env var (blob or local) → auto-detect blob if connection string exists → fallback to local
     """
-    source = os.getenv("P6_DATA_SOURCE", "local").lower().strip()
+    source = os.getenv("P6_DATA_SOURCE", "").lower().strip()
+    
+    # Auto-detect blob if connection string exists and source not explicitly set to "local"
+    if not source and os.getenv("AZURE_STORAGE_CONNECTION_STRING"):
+        source = "blob"
+    
+    # Final fallback to local
+    if not source:
+        source = "local"
 
     if source == "blob":
         return _load_from_blob()
