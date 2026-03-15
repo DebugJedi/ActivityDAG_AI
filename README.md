@@ -1,7 +1,7 @@
 # CriticalPath AI
 
 > **P6 Schedule Intelligence Assistant — ask questions about your project schedule in plain English.**  
-> Azure OpenAI · NetworkX · Azure Static Web Apps · Azure Functions · Python
+> Azure OpenAI · NetworkX · Azure Static Web Apps · Azure Functions · Python · Live in production
 
 ---
 
@@ -15,16 +15,60 @@ Built for and actively used on gas distribution pipeline project scheduling at a
 
 ---
 
-## Key Capabilities
+## Demo
 
-| Query | What it does |
-|---|---|
-| `"Show critical path"` | Computes longest path through the DAG, returns ordered activity list |
-| `"Top float risks"` | Ranks activities by total float ascending — lowest float = highest risk |
-| `"Project duration"` | Returns early finish of sink node in working days |
-| `"Predecessors of A1030"` | Traverses graph edges, returns all upstream dependencies |
-| `"Phase X float analysis"` | Filters by WBS phase, computes float distribution |
-| `"High float activities"` | Returns activities above float threshold with context |
+### Critical path analysis
+![Critical Path](docs/screenshots/demo_critical_path.png)
+
+### Date window query
+![Date Window](docs/screenshots/demo_date_window.png)
+
+### Baseline slippage + budget analysis
+![Slippage and Budget](docs/screenshots/demo_budget.png)
+
+---
+
+## What You Can Ask
+
+CriticalPath AI understands **12 intent types** out of the box. Below are real prompts and what each returns.
+
+### Schedule & Critical Path
+
+| Prompt | Intent | What it returns |
+|---|---|---|
+| `"Which activities are driving my project finish?"` | `CRITICAL_PATH` | Ordered list of zero-float activities forming the critical path + total duration |
+| `"Show critical path"` | `CRITICAL_PATH` | Same as above, trigger phrase shortcut |
+| `"What is the total project duration?"` | `DURATION` | Early finish of sink node in working days |
+| `"Are any construction activities near critical?"` | `PHASE_FLOAT` | Critical (float=0) and near-critical (float≤30) activities filtered by phase |
+| `"Which design tasks are at risk?"` | `PHASE_FLOAT` | Phase-specific float breakdown with critical/near-critical classification |
+| `"Which permits have no float for this project?"` | `PHASE_FLOAT` | Permitting phase activities at zero float |
+
+### Float & Resource Analysis
+
+| Prompt | Intent | What it returns |
+|---|---|---|
+| `"Which tasks could slip without impacting the finish date?"` | `HIGH_FLOAT` | Top non-critical activities ranked by float descending |
+| `"Which tasks can I delay if I need to reallocate resources?"` | `HIGH_FLOAT` | Same — float = scheduling flexibility for resource reallocation |
+| `"Top float risks"` | `LOW_FLOAT` | Activities with lowest float — highest schedule risk |
+| `"What tasks are assigned to the Civil Engineer?"` | `RESOURCE_TASKS` | Activities by resource name with float and criticality |
+
+### Baseline & Budget
+
+| Prompt | Intent | What it returns |
+|---|---|---|
+| `"Which activities have slipped from baseline?"` | `SLIPPAGE` | Behind/ahead counts, days of slippage, variance summary |
+| `"What tasks are behind their original plan?"` | `SLIPPAGE` | Same — natural language variation handled |
+| `"What is the total project budget?"` | `BUDGET_TOTAL` | Total budget split by Labor / Material / Equipment with % breakdown |
+| `"Which activities have the highest budget?"` | `BUDGET_TOP_TASKS` | Top N activities ranked by budget with phase context |
+| `"Show me the top 10 most expensive activities"` | `BUDGET_TOP_TASKS` | Ranked budget list with insights |
+
+### Date Window Queries
+
+| Prompt | Intent | What it returns |
+|---|---|---|
+| `"What activities are starting or finishing in the next 6 months?"` | `DATE_WINDOW` | Activities starting, finishing, and spanning the window with float |
+| `"Show me near-critical activities starting next month"` | `DATE_WINDOW` | Date-filtered + float-filtered combined query |
+| `"What tasks are starting in April 2026?"` | `DATE_WINDOW` | Month-specific activity lookup with critical path context |
 
 ---
 
@@ -40,11 +84,15 @@ Browser (Azure Static Web App)
             ▼
     Azure Functions (Python)
     ├── Intent classifier  →  routes query to correct handler
+    │   └── 12 intent types: CRITICAL_PATH · PHASE_FLOAT · HIGH_FLOAT
+    │                         LOW_FLOAT · DATE_WINDOW · SLIPPAGE
+    │                         BUDGET_TOTAL · BUDGET_TOP_TASKS
+    │                         RESOURCE_TASKS · DURATION · ...
     ├── Graph engine       →  NetworkX DAG · CPM · float computation
-    │   ├── critical_path()
-    │   ├── float_analysis()
-    │   ├── predecessors()
-    │   └── phase_float()
+    │   ├── critical_path()      forward + backward pass
+    │   ├── float_analysis()     total float ranking
+    │   ├── predecessors()       upstream dependency traversal
+    │   └── phase_float()        WBS-filtered float analysis
     └── Azure OpenAI       →  natural language explanation layer
             │
             ▼
@@ -52,12 +100,7 @@ Browser (Azure Static Web App)
     └── P6 CSV data        →  TASK.csv · TASKPRED.csv · PROJECT.csv
 ```
 
-**Data flow:**
-1. User selects project and types a schedule question
-2. Azure Function classifies intent and routes to the correct graph query
-3. NetworkX computes the answer directly from the P6 DAG
-4. Azure OpenAI wraps the computed result in a clear natural language explanation
-5. Response streams back to the chat interface
+**Key design principle:** The LLM only explains, never computes. All schedule logic is computed deterministically by the graph engine. Azure OpenAI is invoked only to translate computed results into plain English — this eliminates hallucination risk on schedule data entirely.
 
 ---
 
@@ -86,7 +129,7 @@ ActivityDAG_AI/
 │   ├── chat/                  ←  POST /api/chat — intent + routing
 │   └── shared/
 │       ├── graph_engine.py    ←  NetworkX DAG · CPM · float logic
-│       └── intent.py          ←  Query classifier
+│       └── intent.py          ←  Query classifier (12 intents)
 ├── data/                      ←  Your P6 CSV files go here (gitignored)
 ├── scripts/                   ←  Utility scripts
 ├── .github/workflows/         ←  CI/CD pipeline
@@ -231,11 +274,11 @@ az storage blob upload-batch \
 In your GitHub repo → Settings → Secrets → Actions, add:
 
 ```
-AZURE_STATIC_WEB_APPS_API_TOKEN    ← from Step 3
+AZURE_STATIC_WEB_APPS_API_TOKEN
 AZURE_OPENAI_ENDPOINT
 AZURE_OPENAI_KEY
 AZURE_OPENAI_DEPLOYMENT
-AZURE_STORAGE_CONNECTION_STRING    ← from Step 1
+AZURE_STORAGE_CONNECTION_STRING
 BLOB_CONTAINER_NAME                ← p6-data
 ```
 
@@ -245,7 +288,7 @@ BLOB_CONTAINER_NAME                ← p6-data
 git push origin main
 ```
 
-GitHub Actions will build and deploy automatically. Your app will be live at the Azure Static Web Apps URL within a few minutes.
+GitHub Actions will build and deploy automatically.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for advanced configuration options.
 
@@ -263,28 +306,19 @@ The core of this system is a **directed acyclic graph (DAG)** built from P6 pred
 
 **Cycle handling:** If a cycle is detected in the schedule data (common with poorly exported P6 files), the engine falls back to P6's native `driving_path_flag` column when present — graceful degradation rather than a hard failure.
 
-**Key design principle:** The LLM only explains, never computes. All schedule logic — critical path, float, predecessors — is computed deterministically by the graph engine. Azure OpenAI is invoked only to translate computed results into plain English. This eliminates hallucination risk on schedule data entirely.
-
----
-
-## Why This Matters
-
-Schedule analysis on large infrastructure projects is typically done manually by experienced planners using P6 directly. This tool makes that analysis:
-
-- **Instant** — answers in seconds vs. hours of manual filtering
-- **Accessible** — any project stakeholder can query the schedule without P6 access
-- **Auditable** — graph-computed answers with full traceability
-
 ---
 
 ## Roadmap
 
 - [x] Critical path computation
-- [x] Float risk ranking
-- [x] Predecessor/successor traversal
+- [x] Float risk ranking (high + low float)
 - [x] Phase-specific float analysis
+- [x] Baseline slippage detection
+- [x] Budget analysis by activity and resource
+- [x] Date window queries (start/finish within range)
+- [x] Resource assignment queries
 - [x] Project switching in UI
-- [ ] Baseline vs. actual variance analysis
+- [ ] Baseline vs. actual variance chart
 - [ ] Schedule health score dashboard
 - [ ] Gantt chart visualization of critical path
 - [ ] Multi-project portfolio view
