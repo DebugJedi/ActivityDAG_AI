@@ -15,18 +15,6 @@ Built for and actively used on gas distribution pipeline project scheduling at a
 
 ---
 
-## Demo
-
-### Critical path analysis
-![Critical Path](docs/screenshots/demo_critical_path.png)
-
-### Date window query
-![Date Window](docs/screenshots/demo_date_window.png)
-
-### Baseline slippage + budget analysis
-![Slippage and Budget](docs/screenshots/demo_budget.png)
-
----
 
 ## What You Can Ask
 
