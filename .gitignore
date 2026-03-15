@@ -31,7 +31,8 @@ data_backup
 *.db-journal
 *.sqlite
 *.sqlite3
-
+data/
+data/exports
 # Environment
 .env
 .env.local

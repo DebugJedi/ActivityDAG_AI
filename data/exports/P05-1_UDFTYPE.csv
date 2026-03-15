@@ -1,5 +1,0 @@
-udf_type_id,table_name,udf_type_name,udf_type_label,logical_data_type,super_flag,indicator_expression,summary_indicator_expression
-814,TASK,user_field_814,Construction Start,FT_START_DATE,N,,
-815,TASK,user_field_815,Construction Finish,FT_END_DATE,N,,
-816,TASK,user_field_816,ISD,FT_END_DATE,N,,
-817,TASK,user_field_817,ISD Year,FT_TEXT,N,,
